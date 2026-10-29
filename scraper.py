@@ -38,11 +38,10 @@ def todo(_):
 
 RESORTS = [
     {"name": "Lake Louise",   "lat": 51.4536, "lon": -116.1388, "url": None, "extract": todo},
-    # NOTE: this page has no 24h figure, only "5 Day". Use it to sanity-check the
-    # model estimate, or swap the label to whichever number you want on the LEDs.
+    # Labels on this page include "24hr", "5 Day", "Base", "Settled Base", "Cumulative".
     {"name": "Sunshine",      "lat": 51.0786, "lon": -115.7720,
      "url": "https://www.skibanff.com/the-mountain/mountain-report/current-conditions",
-     "extract": lambda r: extract_after_label(r, "5 Day")},
+     "extract": lambda r: extract_after_label(r, "24hr")},
     {"name": "Norquay",       "lat": 51.2018, "lon": -115.5940, "url": None, "extract": todo},
     {"name": "Nakiska",       "lat": 50.9400, "lon": -115.1500, "url": None, "extract": todo},
     {"name": "Castle",        "lat": 49.3167, "lon": -114.4167, "url": None, "extract": todo},
