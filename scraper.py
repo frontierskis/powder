@@ -10,14 +10,15 @@ Run it on a schedule (GitHub Actions cron, a Pi, a cheap VPS) and host the
 resulting snow.json somewhere the ESP32 can fetch over HTTPS
 (GitHub Pages is the easiest).
 
-pip install requests beautifulsoup4
+pip install requests beautifulsoup4 playwright
+playwright install --with-deps chromium
 """
 import json
-import re
+import os
+import subprocess
 import sys
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
-
 from types import SimpleNamespace
 
 import requests
@@ -54,26 +55,26 @@ def rcr(name, lat, lon, url):
         "name": name, "lat": lat, "lon": lon, "url": url,
         "render_wait": ".rcr-element-box-quantity-snowreport",
         "extract": lambda r: (extract_rcr_snow(r, "LAST 24 HOURS"),
-                              extract_rcr_snow(r, "LAST 7 DAYS")),
+                            extract_rcr_snow(r, "LAST 7 DAYS")),
     }
 
 
 RESORTS = [
-    {"name": "Lake Louise",   "lat": 51.4536, "lon": -116.1388, "url": None, "extract": todo},
+    {"name": "Lake Louise",    "lat": 51.4536, "lon": -116.1388, "url": None, "extract": todo},
     # Labels on this page include "24hr", "5 Day", "Base", "Settled Base", "Cumulative".
-    {"name": "Sunshine",      "lat": 51.0786, "lon": -115.7720,
+    {"name": "Sunshine",       "lat": 51.0786, "lon": -115.7720,
      "url": "https://www.skibanff.com/the-mountain/mountain-report/current-conditions",
      # This page's "week" figure is a 5-day total, labelled "5 Day".
      "extract": lambda r: (extract_after_label(r, "24hr"),
                            extract_after_label(r, "5 Day"))},
     # Norquay shows "Overnight", "Last 24 Hours" and "Last 7 Days".
-    {"name": "Norquay",       "lat": 51.2018, "lon": -115.5940,
+    {"name": "Norquay",        "lat": 51.2018, "lon": -115.5940,
      "url": "https://banffnorquay.com/conditions/",
      "extract": lambda r: (extract_before_label(r, "Last 24 Hours"),
                            extract_before_label(r, "Last 7 Days"))},
     rcr("Nakiska", 50.9400, -115.1500, "https://skinakiska.com/conditions/snow-report/"),
     # Castle's report is a table: "Fresh Snow (24 hrs)" and "Last 7 days".
-    {"name": "Castle",        "lat": 49.3167, "lon": -114.4167,
+    {"name": "Castle",         "lat": 49.3167, "lon": -114.4167,
      "url": "https://www.skicastle.ca/snowreport/",
      "extract": lambda r: (extract_table_value(r, "Fresh Snow (24 hrs)"),
                            extract_table_value(r, "Last 7 days"))},
@@ -82,7 +83,7 @@ RESORTS = [
     rcr("Kimberley", 49.6800, -116.0000, "https://skikimberley.com/conditions/snow-report/"),
     # Panorama: numbers load via JavaScript. Wait until the "24 Hours" box has a digit
     # (the page also shows other numbers, so a plain "any text" wait would be too early).
-    {"name": "Panorama",      "lat": 50.4600, "lon": -116.2400,
+    {"name": "Panorama",       "lat": 50.4600, "lon": -116.2400,
      "url": "https://www.panoramaresort.com/panorama-today/daily-snow-report",
      "render_wait_js": r"""() => [...document.querySelectorAll('.summary-facilities__stat')]
          .some(b => /24\s*hours/i.test(b.textContent) &&
@@ -226,25 +227,35 @@ def open_meteo_cm(lat, lon):
 def fetch_rendered(url, wait_selector=None, wait_js=None, timeout_ms=45000):
     """Load a page in headless Chrome and return an object with .text (the
     rendered HTML), like a requests response.
-    Waits until `wait_js` (a JS function string returning true) passes, or, if
-    that isn't given, until `wait_selector` has some text.
-    Needs: pip install playwright && python -m playwright install --with-deps chromium"""
+    Automatically installs Playwright binaries if missing."""
     from playwright.sync_api import sync_playwright
-    with sync_playwright() as p:
+    
+    try:
+        p = sync_playwright().start()
         browser = p.chromium.launch()
-        try:
-            page = browser.new_page(user_agent=HEADERS["User-Agent"])
-            page.goto(url, wait_until="networkidle", timeout=timeout_ms)
-            if wait_js:
-                page.wait_for_function(wait_js, timeout=20000)
-            elif wait_selector:
-                page.wait_for_function(
-                    "sel => { const e = document.querySelector(sel); "
-                    "return e && e.textContent.trim() !== ''; }",
-                    arg=wait_selector, timeout=20000)
-            return SimpleNamespace(text=page.content())
-        finally:
-            browser.close()
+    except Exception as e:
+        if "Executable doesn't exist" in str(e) or "playwright install" in str(e).lower():
+            print("Playwright browser binaries missing. Installing chromium automatically...", file=sys.stderr)
+            subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+            p = sync_playwright().start()
+            browser = p.chromium.launch()
+        else:
+            raise e
+
+    try:
+        page = browser.new_page(user_agent=HEADERS["User-Agent"])
+        page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+        if wait_js:
+            page.wait_for_function(wait_js, timeout=20000)
+        elif wait_selector:
+            page.wait_for_function(
+                "sel => { const e = document.querySelector(sel); "
+                "return e && e.textContent.trim() !== ''; }",
+                arg=wait_selector, timeout=20000)
+        return SimpleNamespace(text=page.content())
+    finally:
+        browser.close()
+        p.stop()
 
 
 def get_resort(resort):
@@ -255,8 +266,8 @@ def get_resort(resort):
     if resort["url"]:
         try:
             if resort.get("render_wait") or resort.get("render_wait_js"):
-                resp = fetch_rendered(resort["url"], resort.get("render_wait"),
-                                      resort.get("render_wait_js"))
+                resp = fetch_rendered(resort["url"], resort.get("render_wait", None),
+                                    resort.get("render_wait_js", None))
             else:
                 resp = requests.get(resort["url"], headers=HEADERS, timeout=TIMEOUT)
                 resp.raise_for_status()
