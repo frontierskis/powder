@@ -22,7 +22,12 @@ import requests
 from bs4 import BeautifulSoup
 
 TZ = ZoneInfo("America/Edmonton")
-HEADERS = {"User-Agent": "Mozilla/5.0 (personal powder-day display)"}
+HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-CA,en;q=0.9",
+}
 TIMEOUT = 20
 
 
@@ -46,7 +51,11 @@ RESORTS = [
      # This page's "week" figure is a 5-day total, labelled "5 Day".
      "extract": lambda r: (extract_after_label(r, "24hr"),
                            extract_after_label(r, "5 Day"))},
-    {"name": "Norquay",       "lat": 51.2018, "lon": -115.5940, "url": None, "extract": todo},
+    # Norquay shows "Overnight", "Last 24 Hours" and "Last 7 Days".
+    {"name": "Norquay",       "lat": 51.2018, "lon": -115.5940,
+     "url": "https://banffnorquay.com/conditions/",
+     "extract": lambda r: (extract_before_label(r, "Last 24 Hours"),
+                           extract_before_label(r, "Last 7 Days"))},
     {"name": "Nakiska",       "lat": 50.9400, "lon": -115.1500, "url": None, "extract": todo},
     {"name": "Castle",        "lat": 49.3167, "lon": -114.4167, "url": None, "extract": todo},
     {"name": "Fernie",        "lat": 49.4636, "lon": -115.0883, "url": None, "extract": todo},
@@ -78,6 +87,21 @@ def extract_after_label(resp, label, tag="h4", occurrence=0):
         if s.parent is head:  # skip the label's own text (e.g. the "5" in "5 Day")
             continue
         m = re.match(r"\s*(\d+(?:\.\d+)?)", s)
+        if m:
+            return float(m.group(1))
+    return None
+
+
+def extract_before_label(resp, label, tag="p", occurrence=0):
+    """Find <tag>label</tag>, return the nearest "<number>cm" text just BEFORE it.
+    Matches banffnorquay.com: <h3>0cm</h3> ... <p>Last 24 Hours</p>"""
+    soup = BeautifulSoup(resp.text, "html.parser")
+    labels = [t for t in soup.find_all(tag)
+              if t.get_text(strip=True).lower() == label.lower()]
+    if len(labels) <= occurrence:
+        return None
+    for s in labels[occurrence].find_all_previous(string=True):
+        m = re.match(r"\s*(\d+(?:\.\d+)?)\s*cm\b", s)
         if m:
             return float(m.group(1))
     return None
@@ -133,6 +157,8 @@ def get_resort(resort):
             resp = requests.get(resort["url"], headers=HEADERS, timeout=TIMEOUT)
             resp.raise_for_status()
             cm24, week = resort["extract"](resp)
+            print(f"[{resort['name']}] fetched {len(resp.text)} chars, "
+                  f"extracted 24h={cm24} week={week}", file=sys.stderr)
         except Exception as e:
             print(f"[{resort['name']}] resort scrape failed: {e}", file=sys.stderr)
 
