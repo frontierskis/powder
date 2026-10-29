@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
 """
 Builds snow.json for the ESP32 powder-day display.
-
-For each resort it tries, in order:
-  1. The resort's own report
-  2. Open-Meteo model estimate of the last 24h of snowfall (free, no API key)
-
-pip install requests beautifulsoup4 playwright
-playwright install --with-deps chromium
 """
 import json
 import os
 import re
 import subprocess
 import sys
-import concurrent.futures
+import tempfile
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from types import SimpleNamespace
@@ -30,12 +23,9 @@ HEADERS = {
     "Accept-Language": "en-CA,en;q=0.9",
 }
 TIMEOUT = 20
-NOTES = {}  # resort name -> why the resort scrape failed (written into snow.json)
+NOTES = {}
 
 
-# ---------------------------------------------------------------------------
-# Resort list. Order = order the button cycles through.
-# ---------------------------------------------------------------------------
 def todo(_):
     return None, None
 
@@ -77,9 +67,6 @@ RESORTS = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Extractors
-# ---------------------------------------------------------------------------
 def extract_after_label(resp, label, tag="h4", occurrence=0):
     soup = BeautifulSoup(resp.text, "html.parser")
     heads = [h for h in soup.find_all(tag)
@@ -148,9 +135,6 @@ def extract_stat_box(resp, label):
     return None
 
 
-# ---------------------------------------------------------------------------
-# Fallback Model: Open-Meteo
-# ---------------------------------------------------------------------------
 def open_meteo_cm(lat, lon):
     r = requests.get(
         "https://api.open-meteo.com/v1/forecast",
@@ -176,44 +160,48 @@ def open_meteo_cm(lat, lon):
     return total(24), total(7 * 24)
 
 
-# ---------------------------------------------------------------------------
-# Headless browser runner via ThreadPoolExecutor (bypasses asyncio loop conflicts)
-# ---------------------------------------------------------------------------
-def _fetch_rendered_worker(url, wait_selector, wait_js, timeout_ms):
-    from playwright.sync_api import sync_playwright
-    try:
-        p = sync_playwright().start()
-        browser = p.chromium.launch()
-    except Exception as e:
-        if "Executable doesn't exist" in str(e) or "playwright install" in str(e).lower():
-            print("Playwright binaries missing. Installing chromium...", file=sys.stderr)
-            subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
-            p = sync_playwright().start()
-            browser = p.chromium.launch()
-        else:
-            raise e
-
-    try:
-        page = browser.new_page(user_agent=HEADERS["User-Agent"])
-        page.goto(url, wait_until="networkidle", timeout=timeout_ms)
-        if wait_js:
-            page.wait_for_function(wait_js, timeout=20000)
-        elif wait_selector:
-            page.wait_for_function(
-                "sel => { const e = document.querySelector(sel); "
-                "return e && e.textContent.trim() !== ''; }",
-                arg=wait_selector, timeout=20000)
-        return page.content()
-    finally:
-        browser.close()
-        p.stop()
-
-
 def fetch_rendered(url, wait_selector=None, wait_js=None, timeout_ms=45000):
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_fetch_rendered_worker, url, wait_selector, wait_js, timeout_ms)
-        html_content = future.result()
-        return SimpleNamespace(text=html_content)
+    """Spawns Playwright in a completely independent subprocess to avoid asyncio loop conflicts."""
+    script_code = f"""
+import sys
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    try:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page(user_agent="{HEADERS['User-Agent']}")
+        page.goto("{url}", wait_until="networkidle", timeout={timeout_ms})
+"""
+    if wait_js:
+        script_code += f"""
+        page.wait_for_function({repr(wait_js)}, timeout=20000)
+"""
+    elif wait_selector:
+        script_code += f"""
+        page.wait_for_function(
+            "sel => {{ const e = document.querySelector(sel); return e && e.textContent.trim() !== ''; }}",
+            arg="{wait_selector}", timeout=20000)
+"""
+    script_code += """
+        print(page.content())
+        browser.close()
+    except Exception as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        sys.exit(1)
+"""
+    
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
+        f.write(script_code)
+        tmp_name = f.name
+
+    try:
+        res = subprocess.run([sys.executable, tmp_name], capture_output=True, text=True, timeout=60)
+        if res.returncode != 0:
+            raise RuntimeError(res.stderr.strip())
+        return SimpleNamespace(text=res.stdout)
+    finally:
+        if os.path.exists(tmp_name):
+            os.remove(tmp_name)
 
 
 def get_resort(resort):
