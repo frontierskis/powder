@@ -3,20 +3,18 @@
 Builds snow.json for the ESP32 powder-day display.
 
 For each resort it tries, in order:
-  1. The resort's own report (you fill in URL + extractor below)
+  1. The resort's own report
   2. Open-Meteo model estimate of the last 24h of snowfall (free, no API key)
-
-Run it on a schedule (GitHub Actions cron, a Pi, a cheap VPS) and host the
-resulting snow.json somewhere the ESP32 can fetch over HTTPS
-(GitHub Pages is the easiest).
 
 pip install requests beautifulsoup4 playwright
 playwright install --with-deps chromium
 """
 import json
 import os
+import re
 import subprocess
 import sys
+import concurrent.futures
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 from types import SimpleNamespace
@@ -37,20 +35,12 @@ NOTES = {}  # resort name -> why the resort scrape failed (written into snow.jso
 
 # ---------------------------------------------------------------------------
 # Resort list. Order = order the button cycles through.
-# lat/lon are approximate base-to-mid-mountain points for the model fallback.
-# url / extract are YOURS to fill in after inspecting each page (see README
-# notes in the chat: DevTools -> Network -> Fetch/XHR, look for a JSON call).
 # ---------------------------------------------------------------------------
 def todo(_):
-    # Each extractor takes the HTTP response and returns (cm_24h, cm_week).
-    # Either can be None; missing values are filled in from the model.
     return None, None
 
 
 def rcr(name, lat, lon, url):
-    """Resorts of the Canadian Rockies sites (Fernie, Kicking Horse, Nakiska,
-    Kimberley) share one template whose numbers are filled in by JavaScript,
-    so they are loaded in a headless browser."""
     return {
         "name": name, "lat": lat, "lon": lon, "url": url,
         "render_wait": ".rcr-element-box-quantity-snowreport",
@@ -61,19 +51,15 @@ def rcr(name, lat, lon, url):
 
 RESORTS = [
     {"name": "Lake Louise",    "lat": 51.4536, "lon": -116.1388, "url": None, "extract": todo},
-    # Labels on this page include "24hr", "5 Day", "Base", "Settled Base", "Cumulative".
     {"name": "Sunshine",       "lat": 51.0786, "lon": -115.7720,
      "url": "https://www.skibanff.com/the-mountain/mountain-report/current-conditions",
-     # This page's "week" figure is a 5-day total, labelled "5 Day".
      "extract": lambda r: (extract_after_label(r, "24hr"),
                            extract_after_label(r, "5 Day"))},
-    # Norquay shows "Overnight", "Last 24 Hours" and "Last 7 Days".
     {"name": "Norquay",        "lat": 51.2018, "lon": -115.5940,
      "url": "https://banffnorquay.com/conditions/",
      "extract": lambda r: (extract_before_label(r, "Last 24 Hours"),
                            extract_before_label(r, "Last 7 Days"))},
     rcr("Nakiska", 50.9400, -115.1500, "https://skinakiska.com/conditions/snow-report/"),
-    # Castle's report is a table: "Fresh Snow (24 hrs)" and "Last 7 days".
     {"name": "Castle",         "lat": 49.3167, "lon": -114.4167,
      "url": "https://www.skicastle.ca/snowreport/",
      "extract": lambda r: (extract_table_value(r, "Fresh Snow (24 hrs)"),
@@ -81,8 +67,6 @@ RESORTS = [
     rcr("Fernie", 49.4636, -115.0883, "https://skifernie.com/conditions/snow-report/"),
     rcr("Kicking Horse", 51.2985, -117.0486, "https://kickinghorseresort.com/conditions/snow-report/"),
     rcr("Kimberley", 49.6800, -116.0000, "https://skikimberley.com/conditions/snow-report/"),
-    # Panorama: numbers load via JavaScript. Wait until the "24 Hours" box has a digit
-    # (the page also shows other numbers, so a plain "any text" wait would be too early).
     {"name": "Panorama",       "lat": 50.4600, "lon": -116.2400,
      "url": "https://www.panoramaresort.com/panorama-today/daily-snow-report",
      "render_wait_js": r"""() => [...document.querySelectorAll('.summary-facilities__stat')]
@@ -94,19 +78,9 @@ RESORTS = [
 
 
 # ---------------------------------------------------------------------------
-# Example extractors (templates). Use whichever matches what you find.
+# Extractors
 # ---------------------------------------------------------------------------
-def extract_from_json(resp, path):
-    """If the page calls a JSON endpoint, walk a key path like ['report','snow24']."""
-    data = resp.json()
-    for key in path:
-        data = data[key]
-    return float(data)
-
-
 def extract_after_label(resp, label, tag="h4", occurrence=0):
-    """Find <tag>label</tag>, return the first number that follows it.
-    Matches skibanff.com: <h4>Label</h4> ... <span class="value">10</span> cm"""
     soup = BeautifulSoup(resp.text, "html.parser")
     heads = [h for h in soup.find_all(tag)
              if h.get_text(strip=True).lower() == label.lower()]
@@ -114,7 +88,7 @@ def extract_after_label(resp, label, tag="h4", occurrence=0):
         return None
     head = heads[occurrence]
     for s in head.find_all_next(string=True):
-        if s.parent is head:  # skip the label's own text (e.g. the "5" in "5 Day")
+        if s.parent is head:
             continue
         m = re.match(r"\s*(\d+(?:\.\d+)?)", s)
         if m:
@@ -123,8 +97,6 @@ def extract_after_label(resp, label, tag="h4", occurrence=0):
 
 
 def extract_before_label(resp, label, tag="p", occurrence=0):
-    """Find <tag>label</tag>, return the nearest "<number>cm" text just BEFORE it.
-    Matches banffnorquay.com: <h3>0cm</h3> ... <p>Last 24 Hours</p>"""
     soup = BeautifulSoup(resp.text, "html.parser")
     labels = [t for t in soup.find_all(tag)
               if t.get_text(strip=True).lower() == label.lower()]
@@ -138,8 +110,6 @@ def extract_before_label(resp, label, tag="p", occurrence=0):
 
 
 def extract_table_value(resp, label):
-    """Find a table cell whose text is `label`, return the number in the next cell.
-    Matches skicastle.ca: <tr><td>Fresh Snow (24 hrs)</td><td>0</td></tr>"""
     soup = BeautifulSoup(resp.text, "html.parser")
     for cell in soup.find_all(["td", "th"]):
         if cell.get_text(strip=True).lower() == label.lower():
@@ -152,10 +122,6 @@ def extract_table_value(resp, label):
 
 
 def extract_rcr_snow(resp, label):
-    """RCR resort sites (Fernie etc.): a box with a number div and a label div:
-    <div id="snowReport..." class="rcr-element-box-quantity-snowreport">25 </div>
-    ... <div class="rcr-snow-subheader">LAST 7 DAYS</div>
-    The number is filled in by JavaScript, so use a rendered page (render_wait)."""
     soup = BeautifulSoup(resp.text, "html.parser")
     for sub in soup.find_all(class_="rcr-snow-subheader"):
         if sub.get_text(strip=True).lower() == label.lower():
@@ -169,8 +135,6 @@ def extract_rcr_snow(resp, label):
 
 
 def extract_stat_box(resp, label):
-    """Panorama: <div class="summary-facilities__stat"><h4>12<sup>cm</sup></h4>
-    <p>24 Hours</p></div>. The number is filled in by JavaScript."""
     soup = BeautifulSoup(resp.text, "html.parser")
     for p in soup.find_all("p"):
         if p.get_text(strip=True).lower() != label.lower():
@@ -184,27 +148,16 @@ def extract_stat_box(resp, label):
     return None
 
 
-def extract_from_html(resp, css, pattern=r"(\d+(?:\.\d+)?)"):
-    """Grab text from a CSS selector and pull the first number out of it."""
-    soup = BeautifulSoup(resp.text, "html.parser")
-    node = soup.select_one(css)
-    if not node:
-        return None
-    m = re.search(pattern, node.get_text(" ", strip=True))
-    return float(m.group(1)) if m else None
-
-
 # ---------------------------------------------------------------------------
-# Fallback: model-estimated snowfall over the last 24h and last 7 days
+# Fallback Model: Open-Meteo
 # ---------------------------------------------------------------------------
 def open_meteo_cm(lat, lon):
-    """Return (cm_last_24h, cm_last_7_days) from the Open-Meteo model."""
     r = requests.get(
         "https://api.open-meteo.com/v1/forecast",
         params={
             "latitude": lat,
             "longitude": lon,
-            "hourly": "snowfall",  # cm
+            "hourly": "snowfall",
             "past_days": 7,
             "forecast_days": 1,
             "timezone": "America/Edmonton",
@@ -213,7 +166,7 @@ def open_meteo_cm(lat, lon):
         timeout=TIMEOUT,
     )
     r.raise_for_status()
-    vals = r.json()["hourly"]["snowfall"]  # starts 7 days ago, 00:00 local
+    vals = r.json()["hourly"]["snowfall"]
     now_idx = 7 * 24 + datetime.now(TZ).hour
 
     def total(hours):
@@ -224,18 +177,16 @@ def open_meteo_cm(lat, lon):
 
 
 # ---------------------------------------------------------------------------
-def fetch_rendered(url, wait_selector=None, wait_js=None, timeout_ms=45000):
-    """Load a page in headless Chrome and return an object with .text (the
-    rendered HTML), like a requests response.
-    Automatically installs Playwright binaries if missing."""
+# Headless browser runner via ThreadPoolExecutor (bypasses asyncio loop conflicts)
+# ---------------------------------------------------------------------------
+def _fetch_rendered_worker(url, wait_selector, wait_js, timeout_ms):
     from playwright.sync_api import sync_playwright
-    
     try:
         p = sync_playwright().start()
         browser = p.chromium.launch()
     except Exception as e:
         if "Executable doesn't exist" in str(e) or "playwright install" in str(e).lower():
-            print("Playwright browser binaries missing. Installing chromium automatically...", file=sys.stderr)
+            print("Playwright binaries missing. Installing chromium...", file=sys.stderr)
             subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
             p = sync_playwright().start()
             browser = p.chromium.launch()
@@ -252,17 +203,22 @@ def fetch_rendered(url, wait_selector=None, wait_js=None, timeout_ms=45000):
                 "sel => { const e = document.querySelector(sel); "
                 "return e && e.textContent.trim() !== ''; }",
                 arg=wait_selector, timeout=20000)
-        return SimpleNamespace(text=page.content())
+        return page.content()
     finally:
         browser.close()
         p.stop()
 
 
+def fetch_rendered(url, wait_selector=None, wait_js=None, timeout_ms=45000):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_fetch_rendered_worker, url, wait_selector, wait_js, timeout_ms)
+        html_content = future.result()
+        return SimpleNamespace(text=html_content)
+
+
 def get_resort(resort):
-    """Return (cm_24h, cm_week, source). source is resort, mixed, model or none."""
     cm24 = week = None
 
-    # 1) resort's own report
     if resort["url"]:
         try:
             if resort.get("render_wait") or resort.get("render_wait_js"):
@@ -285,7 +241,6 @@ def get_resort(resort):
     if cm24 is not None and week is not None:
         return cm24, week, "resort"
 
-    # 2) model fills whatever is missing
     try:
         m24, mweek = open_meteo_cm(resort["lat"], resort["lon"])
     except Exception as e:
