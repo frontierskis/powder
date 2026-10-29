@@ -31,6 +31,7 @@ HEADERS = {
     "Accept-Language": "en-CA,en;q=0.9",
 }
 TIMEOUT = 20
+NOTES = {}  # resort name -> why the resort scrape failed (written into snow.json)
 
 
 # ---------------------------------------------------------------------------
@@ -262,8 +263,13 @@ def get_resort(resort):
             cm24, week = resort["extract"](resp)
             print(f"[{resort['name']}] fetched {len(resp.text)} chars, "
                   f"extracted 24h={cm24} week={week}", file=sys.stderr)
+            if cm24 is None or week is None:
+                NOTES[resort["name"]] = (f"page loaded ({len(resp.text)} chars) but extractor "
+                                         f"found 24h={cm24} week={week}")
         except Exception as e:
-            print(f"[{resort['name']}] resort scrape failed: {e}", file=sys.stderr)
+            msg = f"{type(e).__name__}: {e}".replace("\n", " ")[:300]
+            NOTES[resort["name"]] = msg
+            print(f"[{resort['name']}] resort scrape failed: {msg}", file=sys.stderr)
 
     if cm24 is not None and week is not None:
         return cm24, week, "resort"
@@ -292,7 +298,10 @@ def main(out_path="snow.json"):
     out = {"updated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "resorts": []}
     for r in RESORTS:
         cm24, week, src = get_resort(r)
-        out["resorts"].append({"name": r["name"], "cm": cm24, "week": week, "src": src})
+        entry = {"name": r["name"], "cm": cm24, "week": week, "src": src}
+        if NOTES.get(r["name"]):
+            entry["note"] = NOTES[r["name"]]
+        out["resorts"].append(entry)
         print(f"{r['name']:<14} 24h={cm24} cm  week={week} cm  ({src})")
     with open(out_path, "w") as f:
         json.dump(out, f, separators=(",", ":"))
