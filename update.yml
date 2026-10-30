@@ -1,8 +1,15 @@
 name: Update snow data
 
+# Runs twice a day, at about 7:30 am and 6:00 pm Calgary time.
+# GitHub cron uses UTC and ignores daylight saving, so each slot is scheduled
+# at both possible UTC times and the "Decide whether to run" step skips the one
+# that doesn't match (or any run that follows another within 3 hours).
 on:
   schedule:
-    - cron: "15 */3 * * *"   # every 3 hours (UTC)
+    - cron: "30 13 * * *"   # 7:30 am MDT (summer)
+    - cron: "30 14 * * *"   # 7:30 am MST (winter)
+    - cron: "0 0 * * *"     # 6:00 pm MDT (summer)
+    - cron: "0 1 * * *"     # 6:00 pm MST (winter)
   workflow_dispatch:          # lets you run it by hand from the Actions tab
 
 permissions:
@@ -14,19 +21,61 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Decide whether to run
+        id: gate
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import datetime as dt, json, os, sys
+
+          def calgary_offset_hours(utc):
+              """-6 during daylight saving (2nd Sunday of March 2:00 to 1st Sunday of
+              November 2:00), else -7. Computed here so no timezone database is needed."""
+              def nth_sunday(year, month, n):
+                  d = dt.date(year, month, 1)
+                  d += dt.timedelta(days=(6 - d.weekday()) % 7)
+                  return d + dt.timedelta(weeks=n - 1)
+              start = dt.datetime.combine(nth_sunday(utc.year, 3, 2), dt.time(9, 0), dt.timezone.utc)
+              end = dt.datetime.combine(nth_sunday(utc.year, 11, 1), dt.time(8, 0), dt.timezone.utc)
+              return -6 if start <= utc < end else -7
+
+          now = dt.datetime.now(dt.timezone.utc)
+          if os.environ.get("FAKE_NOW"):            # only used for testing
+              now = dt.datetime.fromisoformat(os.environ["FAKE_NOW"])
+          local = now + dt.timedelta(hours=calgary_offset_hours(now))
+          mins = local.hour * 60 + local.minute
+          in_window = (7 * 60 + 30 <= mins < 10 * 60 + 30) or (18 * 60 <= mins < 21 * 60)
+          recent = False
+          try:
+              last = dt.datetime.fromisoformat(json.load(open("snow.json"))["updated"])
+              recent = (now - last).total_seconds() < 3 * 3600
+          except Exception:
+              pass
+          manual = os.environ.get("EVENT") == "workflow_dispatch"
+          run = manual or (in_window and not recent)
+          print(f"local={local:%H:%M} window={in_window} recent={recent} manual={manual} -> run={run}", file=sys.stderr)
+          print("run=" + str(run).lower())
+          PY
+
       - uses: actions/setup-python@v5
+        if: steps.gate.outputs.run == 'true'
         with:
           python-version: "3.12"
 
       - run: pip install -r requirements.txt
+        if: steps.gate.outputs.run == 'true'
 
       - name: Install headless browser
+        if: steps.gate.outputs.run == 'true'
         run: python -m playwright install --with-deps chromium
 
       - name: Run scraper
+        if: steps.gate.outputs.run == 'true'
         run: python scraper.py snow.json
 
       - name: Commit snow.json
+        if: steps.gate.outputs.run == 'true'
         run: |
           git config user.name "snow-bot"
           git config user.email "snow-bot@users.noreply.github.com"
