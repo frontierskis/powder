@@ -53,9 +53,12 @@ def rcr(name, lat, lon, url):
     so they are loaded in a headless browser."""
     return {
         "name": name, "lat": lat, "lon": lon, "url": url,
-        "render_wait": ".rcr-element-box-quantity-snowreport",
-        "extract": lambda r: (extract_rcr_snow(r, "LAST 24 HOURS"),
-                              extract_rcr_snow(r, "LAST 7 DAYS")),
+        "render_wait_js": ("() => [...document.querySelectorAll("
+                           "'.rcr-element-box-quantity-snowreport')]"
+                           ".some(e => /\\d/.test(e.textContent))"),
+        "extract": lambda r: (
+            extract_rcr_snow(r, "LAST 24 HOURS", "snowReportNewSnowFall24"),
+            extract_rcr_snow(r, "LAST 7 DAYS", "snowReportNewSnowFall7days")),
     }
 
 
@@ -160,7 +163,7 @@ def extract_table_value(resp, label):
     return None
 
 
-def extract_rcr_snow(resp, label):
+def extract_rcr_snow(resp, label, elem_id=None):
     """RCR resort sites (Fernie etc.): a box with a number div and a label div:
     <div id="snowReport..." class="rcr-element-box-quantity-snowreport">25 </div>
     ... <div class="rcr-snow-subheader">LAST 7 DAYS</div>
@@ -174,6 +177,12 @@ def extract_rcr_snow(resp, label):
                 m = re.search(r"(\d+(?:\.\d+)?)", num.get_text(" ", strip=True))
                 if m:
                     return float(m.group(1))
+    if elem_id:  # backup: read the box by its element id
+        num = soup.find(id=elem_id)
+        if num:
+            m = re.search(r"(\d+(?:\.\d+)?)", num.get_text(" ", strip=True))
+            if m:
+                return float(m.group(1))
     return None
 
 
@@ -206,23 +215,62 @@ def extract_from_html(resp, css, pattern=r"(\d+(?:\.\d+)?)"):
 # ---------------------------------------------------------------------------
 # Fallback: model-estimated snowfall over the last 24h and last 7 days
 # ---------------------------------------------------------------------------
+def _totals(vals):
+    now_idx = 7 * 24 + datetime.now(TZ).hour
+
+    def total(hours):
+        window = vals[max(0, now_idx - hours + 1): now_idx + 1]
+        return round(sum(v for v in window if v is not None), 1)
+
+    return total(24), total(7 * 24)
+
+
+def prefetch_model(resorts):
+    """One Open-Meteo request for every resort (avoids rate limits and timeouts)."""
+    pts = [(r["lat"], r["lon"]) for r in resorts]
+    for attempt in range(3):
+        try:
+            resp = requests.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params={"latitude": ",".join(str(a) for a, _ in pts),
+                        "longitude": ",".join(str(b) for _, b in pts),
+                        "hourly": "snowfall", "past_days": 7, "forecast_days": 1,
+                        "timezone": "America/Edmonton"},
+                headers=HEADERS, timeout=40)
+            resp.raise_for_status()
+            data = resp.json()
+            data = data if isinstance(data, list) else [data]
+            for pt, d in zip(pts, data):
+                MODEL_CACHE[pt] = _totals(d["hourly"]["snowfall"])
+            return
+        except Exception as e:
+            print(f"model prefetch attempt {attempt + 1} failed: {e}", file=sys.stderr)
+            time.sleep(4 * (attempt + 1))
+
+
 def open_meteo_cm(lat, lon):
     """Return (cm_last_24h, cm_last_7_days) from the Open-Meteo model."""
     r = None
     for attempt in range(4):  # retry: Open-Meteo returns 429 if called too fast
-        r = requests.get(
-            "https://api.open-meteo.com/v1/forecast",
-            params={
-                "latitude": lat,
-                "longitude": lon,
-                "hourly": "snowfall",  # cm
-                "past_days": 7,
-                "forecast_days": 1,
-                "timezone": "America/Edmonton",
-            },
-            headers=HEADERS,
-            timeout=TIMEOUT,
-        )
+        try:
+            r = requests.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "hourly": "snowfall",  # cm
+                    "past_days": 7,
+                    "forecast_days": 1,
+                    "timezone": "America/Edmonton",
+                },
+                headers=HEADERS,
+                timeout=30,
+            )
+        except (requests.Timeout, requests.ConnectionError):
+            if attempt == 3:
+                raise
+            time.sleep(3 * (attempt + 1))
+            continue
         if r.status_code not in (429, 500, 502, 503, 504):
             break
         time.sleep(3 * (attempt + 1))
@@ -272,16 +320,38 @@ def fetch_rendered(url, wait_selector=None, wait_js=None, timeout_ms=45000):
         try:
             page = browser.new_page(user_agent=HEADERS["User-Agent"])
             page.goto(url, wait_until="networkidle", timeout=timeout_ms)
-            if wait_js:
-                page.wait_for_function(wait_js, timeout=20000)
-            elif wait_selector:
-                page.wait_for_function(
-                    "sel => { const e = document.querySelector(sel); "
-                    "return e && e.textContent.trim() !== ''; }",
-                    arg=wait_selector, timeout=20000)
-            return SimpleNamespace(text=page.content())
+            timed_out = False
+            try:
+                if wait_js:
+                    page.wait_for_function(wait_js, timeout=20000)
+                elif wait_selector:
+                    page.wait_for_function(
+                        "sel => { const e = document.querySelector(sel); "
+                        "return e && e.textContent.trim() !== ''; }",
+                        arg=wait_selector, timeout=20000)
+            except Exception as e:  # numbers never appeared: keep the page for diagnosis
+                if "Timeout" not in type(e).__name__:
+                    raise
+                timed_out = True
+            return SimpleNamespace(text=page.content(), timed_out=timed_out)
         finally:
             browser.close()
+
+
+def diagnose(resp):
+    """Short description of what the page actually showed, for the note in snow.json."""
+    soup = BeautifulSoup(resp.text, "html.parser")
+    boxes = [" ".join(e.get_text(" ", strip=True).split())
+             for e in soup.select(".rcr-element-box-fl16, .summary-facilities__stat")]
+    if boxes:
+        return "snow boxes: " + " | ".join(boxes)[:350]
+    text = " ".join(soup.get_text(" ", strip=True).split())
+    m = re.search(r"snow|hrs|hours", text, re.I)
+    i = max(0, (m.start() if m else 0) - 40)
+    return "page text: " + text[i:i + 250]
+
+
+MODEL_CACHE = {}  # (lat, lon) -> (cm24, cm_week), filled by one batched request
 
 
 def get_resort(resort):
@@ -301,8 +371,9 @@ def get_resort(resort):
             print(f"[{resort['name']}] fetched {len(resp.text)} chars, "
                   f"extracted 24h={cm24} week={week}", file=sys.stderr)
             if cm24 is None or week is None:
-                NOTES[resort["name"]] = (f"page loaded ({len(resp.text)} chars) but extractor "
-                                         f"found 24h={cm24} week={week}")
+                waited = " (numbers never appeared)" if getattr(resp, "timed_out", False) else ""
+                NOTES[resort["name"]] = (f"page loaded ({len(resp.text)} chars){waited}, extractor "
+                                         f"found 24h={cm24} week={week}. {diagnose(resp)}")[:600]
         except Exception as e:
             msg = f"{type(e).__name__}: {e}".replace("\n", " ")[:300]
             NOTES[resort["name"]] = msg
@@ -313,7 +384,8 @@ def get_resort(resort):
 
     # 2) model fills whatever is missing
     try:
-        m24, mweek = open_meteo_cm(resort["lat"], resort["lon"])
+        key = (resort["lat"], resort["lon"])
+        m24, mweek = MODEL_CACHE.get(key) or open_meteo_cm(*key)
     except Exception as e:
         print(f"[{resort['name']}] model fallback failed: {e}", file=sys.stderr)
         NOTES[resort["name"]] = (NOTES.get(resort["name"], "") + " | model failed: "
@@ -337,6 +409,7 @@ def get_resort(resort):
 
 def main(out_path="snow.json"):
     out = {"updated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "resorts": []}
+    prefetch_model(RESORTS)
     for r in RESORTS:
         cm24, week, src = get_resort(r)
         entry = {"name": r["name"], "cm": cm24, "week": week, "src": src}
