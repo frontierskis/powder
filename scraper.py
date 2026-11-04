@@ -63,7 +63,12 @@ def rcr(name, lat, lon, url):
 
 
 RESORTS = [
-    {"name": "Lake Louise",   "lat": 51.4536, "lon": -116.1388, "url": None, "extract": todo},
+    # Lake Louise publishes two stations. Change this to "Back Bowls" if you'd rather
+    # show the higher-elevation reading.
+    {"name": "Lake Louise",   "lat": 51.4536, "lon": -116.1388,
+     "url": "https://reports.skilouise.com/",
+     "extract": lambda r: (first_station_value(r, ["Last 24 Hours", "24 Hours"], "Mid Mountain"),
+                           first_station_value(r, ["Last 7 Days", "7 Days"], "Mid Mountain"))},
     # Labels on this page include "24hr", "5 Day", "Base", "Settled Base", "Cumulative".
     {"name": "Sunshine",      "lat": 51.0786, "lon": -115.7720,
      "url": "https://www.skibanff.com/the-mountain/mountain-report/current-conditions",
@@ -199,6 +204,70 @@ def extract_stat_box(resp, label):
             m = re.search(r"(\d+(?:\.\d+)?)", h4.get_text(" ", strip=True))
             if m:
                 return float(m.group(1))
+    return None
+
+
+def extract_station_value(resp, label, station, stations=("Back Bowls", "Mid Mountain")):
+    """Lake Louise reports two stations side by side (Back Bowls, Mid Mountain).
+    Strategy 1: a table row "<label> | v1 | v2" with the station names in a header
+    row, so the column is chosen by name (never guessed).
+    Strategy 2: a section headed by the station name, followed by "<label>" and a number
+    (also accepts "<label>: 5 cm" in one string). Returns None rather than guess."""
+    soup = BeautifulSoup(resp.text, "html.parser")
+    want = label.lower()
+
+    def num(text):
+        m = re.search(r"(\d+(?:\.\d+)?)", text)
+        return float(m.group(1)) if m else None
+
+    # Strategy 1: table with named columns
+    for tr in soup.find_all("tr"):
+        cells = tr.find_all(["td", "th"])
+        if len(cells) < 2 or cells[0].get_text(" ", strip=True).lower() != want:
+            continue
+        table = tr.find_parent("table")
+        order = []
+        for c in (table.find_all(["th", "td"]) if table else []):
+            t = c.get_text(" ", strip=True).lower()
+            for st in stations:
+                if t == st.lower() and st not in order:
+                    order.append(st)
+        if station in order:
+            idx = order.index(station)
+            vals = [num(c.get_text(" ", strip=True)) for c in cells[1:]]
+            if idx < len(vals) and vals[idx] is not None:
+                return vals[idx]
+
+    # Strategy 2: a section that starts at the station name
+    others = {st.lower() for st in stations if st != station}
+    for head in [e for e in soup.find_all(string=True) if e.strip().lower() == station.lower()]:
+        seen = False
+        for s_ in head.find_all_next(string=True):
+            t = s_.strip()
+            if not t:
+                continue
+            tl = t.lower()
+            if tl in others:
+                break                      # reached the other station: stop
+            if tl == want:
+                seen = True
+                continue
+            if tl.startswith(want):        # "24 Hours: 5 cm" in a single string
+                v = num(t[len(want):])
+                if v is not None:
+                    return v
+            if seen:
+                m = re.match(r"(\d+(?:\.\d+)?)", t)
+                if m:
+                    return float(m.group(1))
+    return None
+
+
+def first_station_value(resp, labels, station):
+    for label in labels:
+        v = extract_station_value(resp, label, station)
+        if v is not None:
+            return v
     return None
 
 
