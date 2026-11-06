@@ -1,15 +1,13 @@
 name: Update snow data
 
 # Runs twice a day, at about 7:30 am and 6:00 pm Calgary time.
-# GitHub cron uses UTC and ignores daylight saving, so each slot is scheduled
-# at both possible UTC times and the "Decide whether to run" step skips the one
-# that doesn't match (or any run that follows another within 3 hours).
+# Since 1 Nov 2026 Alberta uses Alberta Time (UTC-6 all year, no clock changes),
+# so the two slots are fixed in UTC. The "Decide whether to run" step is a safety
+# check: it skips a run outside those windows or one that follows another within 3 hours.
 on:
   schedule:
-    - cron: "30 13 * * *"   # 7:30 am MDT (summer)
-    - cron: "30 14 * * *"   # 7:30 am MST (winter)
-    - cron: "0 0 * * *"     # 6:00 pm MDT (summer)
-    - cron: "0 1 * * *"     # 6:00 pm MST (winter)
+    - cron: "30 13 * * *"   # 7:30 am Alberta Time (UTC-6)
+    - cron: "0 0 * * *"     # 6:00 pm Alberta Time (UTC-6)
   workflow_dispatch:          # lets you run it by hand from the Actions tab
 
 permissions:
@@ -30,15 +28,8 @@ jobs:
           import datetime as dt, json, os, sys
 
           def calgary_offset_hours(utc):
-              """-6 during daylight saving (2nd Sunday of March 2:00 to 1st Sunday of
-              November 2:00), else -7. Computed here so no timezone database is needed."""
-              def nth_sunday(year, month, n):
-                  d = dt.date(year, month, 1)
-                  d += dt.timedelta(days=(6 - d.weekday()) % 7)
-                  return d + dt.timedelta(weeks=n - 1)
-              start = dt.datetime.combine(nth_sunday(utc.year, 3, 2), dt.time(9, 0), dt.timezone.utc)
-              end = dt.datetime.combine(nth_sunday(utc.year, 11, 1), dt.time(8, 0), dt.timezone.utc)
-              return -6 if start <= utc < end else -7
+              """Alberta Time (ABT) is UTC-6 all year (no daylight saving from 1 Nov 2026)."""
+              return -6
 
           now = dt.datetime.now(dt.timezone.utc)
           if os.environ.get("FAKE_NOW"):            # only used for testing
