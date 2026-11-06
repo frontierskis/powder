@@ -100,6 +100,11 @@ RESORTS = [
                            extract_stat_box(r, "7 Days"))},
 ]
 
+# Order the display (and the knob) follows. Any resort not listed here goes to the end.
+ORDER = ["Norquay", "Sunshine", "Lake Louise", "Castle", "Kicking Horse",
+         "Panorama", "Kimberley", "Fernie"]
+RESORTS.sort(key=lambda r: ORDER.index(r["name"]) if r["name"] in ORDER else len(ORDER))
+
 
 # ---------------------------------------------------------------------------
 # Example extractors (templates). Use whichever matches what you find.
