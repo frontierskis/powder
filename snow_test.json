@@ -1,0 +1,11 @@
+{"updated":"2026-11-06T13:30:00+00:00","resorts":[
+{"name":"Lake Louise","cm":0,"week":4,"src":"resort"},
+{"name":"Sunshine","cm":5,"week":12,"src":"resort"},
+{"name":"Norquay","cm":9,"week":22,"src":"resort"},
+{"name":"Nakiska","cm":14,"week":28,"src":"resort"},
+{"name":"Castle","cm":15,"week":45,"src":"resort"},
+{"name":"Fernie","cm":28,"week":70,"src":"resort"},
+{"name":"Kicking Horse","cm":45,"week":110,"src":"resort"},
+{"name":"Kimberley","cm":2,"week":9,"src":"model"},
+{"name":"Panorama","cm":null,"week":null,"src":"none"}
+]}
