@@ -22,6 +22,11 @@
   --good-bg: #dcf5e6;
   --warn: #8a4b00;
   --warn-bg: #fff0d6;
+  --sky1: #12304f;
+  --sky2: #5b93c2;
+  --m-far: #a9c6df;
+  --m-mid: #6f97bb;
+  --cap: #ffffff;
   --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
@@ -30,6 +35,7 @@
     --bg: #0d151c; --card: #15202a; --ink: #e6edf3; --muted: #9aa9b6; --line: #28363f;
     --accent: #5da5ff; --accent-ink: #0d151c; --off: #26333d;
     --good: #5be08f; --good-bg: #123524; --warn: #ffc26b; --warn-bg: #3a2a0f;
+    --sky1: #070f1a; --sky2: #24496d; --m-far: #3c5f80; --m-mid: #284561; --cap: #dbe9f6;
     color-scheme: dark;
   }
 }
@@ -37,18 +43,23 @@
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.4;
-  padding-block: max(20px, env(safe-area-inset-top, 0px)) max(32px, env(safe-area-inset-bottom, 0px));
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-bottom: max(32px, env(safe-area-inset-bottom, 0px));
 }
-main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
-header { display: flex; flex-direction: column; gap: 4px; }
-h1 { font-family: var(--display); font-weight: 700; font-size: 38px; line-height: 1; letter-spacing: .01em; text-transform: uppercase; margin: 0; text-wrap: balance; }
-.updated { color: var(--muted); font-size: 14px; }
+/* Hero: a dusk sky with three ridgelines. The nearest ridge is the page colour, so the mountains rise out of the page. */
+.hero { position: relative; overflow: hidden; background: linear-gradient(180deg, var(--sky1) 0%, var(--sky2) 100%); color: #ffffff;
+  padding-top: max(22px, env(safe-area-inset-top, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.hero .inner { max-width: 560px; margin: 0 auto; position: relative; z-index: 1; min-height: 232px; display: flex; flex-direction: column; gap: 4px; }
+.hero svg { position: absolute; left: 0; bottom: -1px; width: 100%; height: 130px; display: block; }
+h1 { font-family: var(--display); font-weight: 700; font-size: 40px; line-height: 1; letter-spacing: .01em; text-transform: uppercase; margin: 0; text-wrap: balance; text-shadow: 0 1px 8px rgba(5, 15, 30, .45); }
+.updated { color: #e3eef8; font-size: 14px; text-shadow: 0 1px 6px rgba(5, 15, 30, .5); }
+main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; padding: 6px max(16px, env(safe-area-inset-left, 0px)) 0; }
+.status { color: var(--muted); font-size: 13px; min-height: 18px; }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .seg { display: inline-flex; border: 1.5px solid var(--ink); border-radius: 8px; overflow: hidden; }
 .seg button { font: inherit; font-size: 14px; font-weight: 600; padding: 8px 14px; min-height: 40px; background: transparent; color: var(--ink); border: 0; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.refresh[disabled] { opacity: .65; cursor: default; }
 .refresh { font: inherit; font-size: 14px; font-weight: 600; min-height: 40px; padding: 8px 14px; border-radius: 8px; border: 1.5px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
 button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .banner { border-radius: 8px; padding: 10px 12px; font-size: 14px; background: var(--warn-bg); color: var(--warn); }
@@ -77,12 +88,21 @@ ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction
 </style>
 </head>
 <body>
-<main>
-  <header>
+<div class="hero">
+  <div class="inner">
     <h1>Rockies Snow Report</h1>
-    <div class="updated" id="updated" aria-live="polite">Loading the latest report</div>
-  </header>
+    <div class="updated" id="updated">Loading the latest report</div>
+  </div>
+  <svg viewBox="0 0 600 140" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+    <path fill="var(--m-far)" d="M0,140 L0,78 L60,50 L95,70 L150,28 L210,72 L260,45 L330,80 L390,38 L450,74 L520,48 L600,76 L600,140Z"/>
+    <path fill="var(--cap)" fill-opacity=".9" d="M60,50 L49,64 L55,60 L60,67 L66,60 L72,64Z M150,28 L135,46 L145,42 L150,51 L158,42 L168,46Z M260,45 L249,60 L256,56 L260,63 L266,56 L272,60Z M390,38 L374,56 L384,51 L390,60 L397,51 L408,56Z M520,48 L508,63 L515,59 L520,66 L526,59 L533,63Z"/>
+    <path fill="var(--m-mid)" d="M0,140 L0,96 L70,70 L120,92 L190,58 L250,98 L320,66 L380,100 L460,62 L530,96 L600,74 L600,140Z"/>
+    <path fill="var(--cap)" fill-opacity=".8" d="M190,58 L178,73 L185,69 L190,76 L196,69 L203,73Z M320,66 L309,80 L315,76 L320,83 L326,76 L332,80Z M460,62 L449,76 L455,72 L460,79 L466,72 L472,76Z"/>
+    <path fill="var(--bg)" d="M0,140 L0,112 L50,98 L110,114 L170,92 L230,116 L300,100 L360,118 L430,96 L500,116 L560,102 L600,112 L600,140Z"/>
+  </svg>
+</div>
 
+<main>
   <div class="row">
     <div class="seg" role="group" aria-label="Sort resorts">
       <button type="button" id="sortSnow" aria-pressed="true">Most snow</button>
@@ -91,6 +111,7 @@ ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction
     <button type="button" class="refresh" id="refresh">Refresh</button>
   </div>
 
+  <div class="status" id="status" role="status" aria-live="polite"></div>
   <div class="banner" id="banner" hidden></div>
   <ul class="list" id="list"><li class="loading">Loading</li></ul>
 
@@ -213,7 +234,25 @@ ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction
     }
   }
 
-  function load() {
+  var statusEl = document.getElementById('status');
+  var refreshBtn = document.getElementById('refresh');
+
+  function clock() {
+    return new Intl.DateTimeFormat('en-CA', { hour: 'numeric', minute: '2-digit', timeZone: 'America/Edmonton' }).format(new Date());
+  }
+
+  function load(manual) {
+    var before = data ? data.updated : null;
+    var started = Date.now();
+    if (manual) { refreshBtn.disabled = true; refreshBtn.textContent = 'Refreshing...'; statusEl.textContent = 'Checking for a new report...'; }
+    function done(ok) {
+      var wait = manual ? Math.max(0, 700 - (Date.now() - started)) : 0;   // keep "Refreshing" visible long enough to see
+      setTimeout(function () {
+        refreshBtn.disabled = false; refreshBtn.textContent = 'Refresh';
+        if (ok) statusEl.textContent = 'Checked at ' + clock() + (before && data.updated === before ? ', no new report yet.' : ', up to date.');
+        else statusEl.textContent = 'Checked at ' + clock() + ', could not reach the server.';
+      }, wait);
+    }
     fetch('snow.json?t=' + Date.now(), { cache: 'no-store' })
       .then(function (res) { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
       .then(function (j) {
@@ -221,8 +260,10 @@ ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction
         data = j;
         showUpdated();
         render();
+        done(true);
       })
       .catch(function () {
+        done(false);
         if (data) {
           banner.hidden = false;
           banner.textContent = 'Could not refresh. Showing the last report that loaded.';
@@ -236,10 +277,10 @@ ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction
 
   btnSnow.addEventListener('click', function () { sortMode = 'snow'; try { localStorage.setItem('snowSort', sortMode); } catch (e) {} render(); });
   btnOrder.addEventListener('click', function () { sortMode = 'order'; try { localStorage.setItem('snowSort', sortMode); } catch (e) {} render(); });
-  document.getElementById('refresh').addEventListener('click', load);
-  document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
-  setInterval(load, 30 * 60 * 1000);
-  load();
+  refreshBtn.addEventListener('click', function () { load(true); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) load(false); });
+  setInterval(function () { load(false); }, 30 * 60 * 1000);
+  load(false);
 })();
 </script>
 </body>
