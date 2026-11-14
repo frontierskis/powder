@@ -1,12 +1,12 @@
 name: Update snow data
 
-# Runs twice a day, at about 7:30 am and 6:00 pm Calgary time.
+# Runs twice a day, at 7:00 am and 6:00 pm Calgary time.
 # Since 1 Nov 2026 Alberta uses Alberta Time (UTC-6 all year, no clock changes),
 # so the two slots are fixed in UTC. The "Decide whether to run" step is a safety
 # check: it skips a run outside those windows or one that follows another within 3 hours.
 on:
   schedule:
-    - cron: "30 13 * * *"   # 7:30 am Alberta Time (UTC-6)
+    - cron: "0 13 * * *"    # 7:00 am Alberta Time (UTC-6)
     - cron: "0 0 * * *"     # 6:00 pm Alberta Time (UTC-6)
   workflow_dispatch:          # lets you run it by hand from the Actions tab
 
@@ -36,7 +36,7 @@ jobs:
               now = dt.datetime.fromisoformat(os.environ["FAKE_NOW"])
           local = now + dt.timedelta(hours=calgary_offset_hours(now))
           mins = local.hour * 60 + local.minute
-          in_window = (7 * 60 + 30 <= mins < 10 * 60 + 30) or (18 * 60 <= mins < 21 * 60)
+          in_window = (7 * 60 <= mins < 10 * 60) or (18 * 60 <= mins < 21 * 60)
           recent = False
           try:
               last = dt.datetime.fromisoformat(json.load(open("snow.json"))["updated"])
