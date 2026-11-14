@@ -395,6 +395,13 @@ def fetch_rendered(url, wait_selector=None, wait_js=None, timeout_ms=45000):
             page = browser.new_page(user_agent=HEADERS["User-Agent"])
             page.goto(url, wait_until="networkidle", timeout=timeout_ms)
             timed_out = False
+            try:  # a bot-check page ("verifying your request") often clears itself in a few seconds
+                page.wait_for_function(
+                    "() => !/please wait while your request is being verified|one moment, please/i"
+                    ".test(document.body ? document.body.innerText : '')", timeout=20000)
+                page.wait_for_load_state("networkidle", timeout=15000)
+            except Exception:
+                pass
             try:
                 if wait_js:
                     page.wait_for_function(wait_js, timeout=20000)
@@ -481,14 +488,46 @@ def get_resort(resort):
     return cm24, week, ("model" if cm24 is not None or week is not None else "none")
 
 
+KEEP_LAST_GOOD_HOURS = 14   # a blocked page keeps its last real report for up to this long
+
+
+def load_previous(path):
+    """Resort entries from the last snow.json, by name (empty if missing or unreadable)."""
+    try:
+        with open(path) as f:
+            old = json.load(f)
+        return {e["name"]: e for e in old.get("resorts", [])}, old.get("updated")
+    except Exception:
+        return {}, None
+
+
 def main(out_path="snow.json"):
-    out = {"updated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "resorts": []}
+    now = datetime.now(timezone.utc)
+    out = {"updated": now.isoformat(timespec="seconds"), "resorts": []}
+    prev, prev_updated = load_previous(out_path)
     prefetch_model(RESORTS)
     for r in RESORTS:
         cm24, week, src = get_resort(r)
         entry = {"name": r["name"], "cm": cm24, "week": week, "src": src}
         if NOTES.get(r["name"]):
             entry["note"] = NOTES[r["name"]]
+        if src in ("resort", "mixed"):
+            entry["asof"] = now.isoformat(timespec="seconds")
+        else:
+            # The resort page was blocked or empty. Prefer its last real report (if recent)
+            # over the weather-model guess, which can say 0 on a day it really snowed.
+            old = prev.get(r["name"])
+            asof = (old or {}).get("asof") or (prev_updated if (old or {}).get("src") == "resort" else None)
+            try:
+                age_h = (now - datetime.fromisoformat(asof)).total_seconds() / 3600
+            except Exception:
+                age_h = None
+            if old and old.get("src") in ("resort", "mixed") and age_h is not None \
+                    and age_h <= KEEP_LAST_GOOD_HOURS and old.get("cm") is not None:
+                entry.update(cm=old["cm"], week=old.get("week", week), src="resort", asof=asof)
+                entry["note"] = (f"resort page blocked this run; kept the report from {asof} "
+                                 f"({age_h:.0f} h ago). " + entry.get("note", ""))[:600]
+                cm24, week, src = entry["cm"], entry["week"], "kept"
         out["resorts"].append(entry)
         print(f"{r['name']:<14} 24h={cm24} cm  week={week} cm  ({src})")
     with open(out_path, "w") as f:
