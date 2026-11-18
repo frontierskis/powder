@@ -81,6 +81,7 @@ ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction
 .cap { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
 .wk { font-family: var(--display); font-weight: 600; font-size: 30px; line-height: .9; font-variant-numeric: tabular-nums; color: var(--ink); }
 .wk small { font-size: 16px; margin-left: 3px; }
+.wk.seas { color: var(--accent); }
 .gauge { display: flex; gap: 2px; height: 12px; }
 .gauge i { flex: 1 1 0; border-radius: 2px; background: var(--off); }
 .scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -119,7 +120,7 @@ ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction
 
   <div class="foot">
     <div>Snow in centimetres. The gauge runs 0 to 30 cm, one block per centimetre. Green blocks start at 15 cm, a powder day.</div>
-    <div>Resorts marked <b>Estimate</b> had no report on their own page, so the number comes from a weather model. Sunshine's week figure is a 5-day total.</div>
+    <div>Resorts marked <b>Estimate</b> had no report on their own page, so the number comes from a weather model. Sunshine's week figure is a 5-day total. Season is the total snowfall so far this winter as the resort reports it; <b>--</b> means the resort's page didn't give one.</div>
   </div>
 </main>
 
@@ -183,6 +184,13 @@ ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction
     w.appendChild(el('small', '', 'cm'));
     b.appendChild(w);
     nums.appendChild(b);
+    var sn = (typeof r.season === 'number') ? r.season : null;
+    var c = el('div');
+    c.appendChild(el('div', 'cap', 'Season'));
+    var sw = el('div', 'wk seas', fmt(sn));
+    sw.appendChild(el('small', '', 'cm'));
+    c.appendChild(sw);
+    nums.appendChild(c);
     li.appendChild(nums);
 
     var filled = cm === null ? 0 : Math.min(SEGMENTS, Math.round(cm));
