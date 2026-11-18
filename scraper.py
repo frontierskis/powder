@@ -59,6 +59,8 @@ def rcr(name, lat, lon, url):
         "extract": lambda r: (
             extract_rcr_snow(r, "LAST 24 HOURS", "snowReportNewSnowFall24"),
             extract_rcr_snow(r, "LAST 7 DAYS", "snowReportNewSnowFall7days")),
+        "season": lambda r: (extract_rcr_snow(r, "THIS SEASON", "snowReportSeasonSnowFall")
+                             or extract_rcr_snow(r, "SEASON TOTAL")),
     }
 
 
@@ -74,18 +76,21 @@ RESORTS = [
      "url": "https://www.skibanff.com/the-mountain/mountain-report/current-conditions",
      # This page's "week" figure is a 5-day total, labelled "5 Day".
      "extract": lambda r: (first_after_label(r, ["24hr", "24 hr", "24 hours"]),
-                           first_after_label(r, ["5 Day", "5 Days", "7 Day", "7 Days"]))},
+                           first_after_label(r, ["5 Day", "5 Days", "7 Day", "7 Days"])),
+     "season": lambda r: first_after_label(r, ["Cumulative"])},
     # Norquay shows "Overnight", "Last 24 Hours" and "Last 7 Days".
     {"name": "Norquay",       "lat": 51.2018, "lon": -115.5940,
      "url": "https://banffnorquay.com/conditions/",
      "extract": lambda r: (extract_before_label(r, "Last 24 Hours"),
-                           extract_before_label(r, "Last 7 Days"))},
+                           extract_before_label(r, "Last 7 Days")),
+     "season": lambda r: season_near_label(r, ["Year to Date Snowfall", "Year to Date"])},
     rcr("Nakiska", 50.9400, -115.1500, "https://skinakiska.com/conditions/snow-report/"),
     # Castle's report is a table: "Fresh Snow (24 hrs)" and "Last 7 days".
     {"name": "Castle",        "lat": 49.3167, "lon": -114.4167,
      "url": "https://www.skicastle.ca/snowreport/",
      "extract": lambda r: (extract_table_value(r, "Fresh Snow (24 hrs)"),
-                           extract_table_value(r, "Last 7 days"))},
+                           extract_table_value(r, "Last 7 days")),
+     "season": lambda r: extract_table_value(r, "Total Snowfall this season")},
     rcr("Fernie", 49.4636, -115.0883, "https://skifernie.com/conditions/snow-report/"),
     rcr("Kicking Horse", 51.2985, -117.0486, "https://kickinghorseresort.com/conditions/snow-report/"),
     rcr("Kimberley", 49.6800, -116.0000, "https://skikimberley.com/conditions/snow-report/"),
@@ -295,6 +300,7 @@ def extract_from_html(resp, css, pattern=r"(\d+(?:\.\d+)?)"):
 # snow.json lists the season-like words it did see, so the labels can be added here.
 # ---------------------------------------------------------------------------
 SEASON_LABEL = re.compile(
+    r"^(total\s+snowfall\s+this\s+season|this\s+season|year[\s-]*to[\s-]*date\s+snowfall)\s*:?$|"
     r"^(total\s+)?(season(al)?(\s+(total|to\s+date|snow(fall)?|snow\s+total))?|"
     r"year[\s-]*to[\s-]*date(\s+snow(fall)?)?|ytd(\s+snow(fall)?)?|"
     r"cumulative(\s+snow(fall)?)?|total\s+snow(fall)?)\s*(\(.*?\))?\s*:?$", re.I)
@@ -344,6 +350,31 @@ def extract_season(resp):
                 if nums and len(t) <= 20:
                     return nums[0]
     return None
+
+
+def season_near_label(resp, labels, tags=("p", "h3", "h4", "h5", "span", "div", "strong", "b")):
+    """Find the number that sits next to a labelled element, whichever tag the page uses and
+    whether the number comes before or after the label (e.g. "<h3>85cm</h3><p>Label</p>")."""
+    for label in labels:
+        for tag in tags:
+            v = extract_before_label(resp, label, tag=tag)
+            if v is not None:
+                return v
+            v = extract_after_label(resp, label, tag=tag)
+            if v is not None:
+                return v
+    return None
+
+
+def season_snippet(resp):
+    """A short piece of the page's HTML around the best season-like label, for diagnosis."""
+    soup = BeautifulSoup(resp.text, "html.parser")
+    for pat in (r"year.to.date", r"cumulative", r"this season|total snowfall", r"^\s*season\s*$"):
+        node = soup.find(string=re.compile(pat, re.I))
+        if node is not None:
+            box = node.parent.parent if node.parent and node.parent.parent else node.parent
+            return re.sub(r"\s+", " ", str(box))[:400]
+    return ""
 
 
 def season_hints(resp):
@@ -529,6 +560,7 @@ def get_resort(resort):
                 SEASON[resort["name"]] = sv
                 if sv is None:
                     SEASON_NOTES[resort["name"]] = "season total not found. words seen: " + season_hints(resp)
+                    + " || html: " + season_snippet(resp)
             except Exception as e:
                 SEASON_NOTES[resort["name"]] = f"season extractor failed: {type(e).__name__}: {e}"[:200]
             print(f"[{resort['name']}] fetched {len(resp.text)} chars, "
@@ -610,7 +642,7 @@ def main(out_path="snow.json"):
             entry["season_asof"] = now.isoformat(timespec="seconds")
         entry["season"] = season
         if season is None and SEASON_NOTES.get(r["name"]):
-            entry["season_note"] = SEASON_NOTES[r["name"]][:300]
+            entry["season_note"] = SEASON_NOTES[r["name"]][:800]
         if src in ("resort", "mixed"):
             entry["asof"] = now.isoformat(timespec="seconds")
         else:
