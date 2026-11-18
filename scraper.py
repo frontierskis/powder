@@ -71,6 +71,9 @@ RESORTS = [
      # skilouise.com/snow-conditions/ is plain HTML with Upper Mountain and Mid Mountain readings
      # (reports.skilouise.com kept timing out from GitHub's servers).
      "url": "https://www.skilouise.com/snow-conditions/",
+     # the station readings are filled in by JavaScript, so load the page in a browser
+     "render_wait_js": r"""() => /mid[\s-]*mountain/i.test(document.body.innerText) &&
+         /last\s*24\s*hours/i.test(document.body.innerText) && /\d\s*cm/i.test(document.body.innerText)""",
      "extract": lambda r: (first_station_value(r, ["Last 24 Hours", "24 Hours"], "Mid Mountain"),
                            first_station_value(r, ["Last 7 Days", "7 Days"], "Mid Mountain")),
      "season": lambda r: first_station_value(r, ["This Season", "Season"], "Mid Mountain")},
@@ -272,17 +275,24 @@ def extract_station_value(resp, label, station, stations=("Back Bowls", "Upper M
     def isnum(t):
         return re.match(r"^\s*\d+(?:\.\d+)?(?!\d)", t) is not None and len(t) <= 24
 
-    for head in [e for e in soup.find_all(string=True) if e.strip().lower() == station.lower()]:
-        toks = []
-        for s_ in head.find_all_next(string=True):
-            t = " ".join(s_.split())
-            if not t or s_.parent.name in ("script", "style"):
-                continue
-            if t.lower() in others:
-                break
-            toks.append(t)
-            if len(toks) > 60:
-                break
+    flat = [" ".join(e.split()) for e in soup.find_all(string=True)
+            if e.strip() and e.parent.name not in ("script", "style")]
+
+    def station_of(t):  # "Mid Mountain", "Mid-Mountain", "MID MOUNTAIN (1,800 m)" all count
+        if len(t) > 60:
+            return None
+        for st in stations:
+            if re.search(r"\b" + r"[\s-]*".join(map(re.escape, st.split())) + r"\b", t, re.I):
+                return st
+        return None
+
+    marks = [(i, station_of(t)) for i, t in enumerate(flat)]
+    marks = [(i, st) for i, st in marks if st]
+    for n_, (mi, st) in enumerate(marks):
+        if st != station:
+            continue
+        end = next((j for j, st2 in marks[n_ + 1:] if st2 != station), mi + 61)
+        toks = flat[mi + 1:min(end, mi + 61)]
         idx = [i for i, t in enumerate(toks) if clean(t) in known]
         if not idx or want not in [clean(toks[i]) for i in idx]:
             continue
@@ -326,8 +336,13 @@ def extract_station_value(resp, label, station, stations=("Back Bowls", "Upper M
 
 
 def station_snippet(resp, station):
-    """A short piece of the page's HTML around a station name, for diagnosis."""
+    """A short piece of the page around a station name, for diagnosis."""
     soup = BeautifulSoup(resp.text, "html.parser")
+    flat = [" ".join(e.split()) for e in soup.find_all(string=True)
+            if e.strip() and e.parent.name not in ("script", "style")]
+    for i, t in enumerate(flat):
+        if len(t) <= 60 and re.search(r"mid[\s-]*mountain", t, re.I):
+            return "text after '" + t + "': " + " | ".join(flat[i + 1:i + 25])[:500]
     for node in soup.find_all(string=lambda t: t and t.strip().lower() == station.lower()):
         box = node.parent.parent.parent if node.parent and node.parent.parent and node.parent.parent.parent else node.parent
         return re.sub(r"\s+", " ", str(box))[:600]
@@ -555,7 +570,12 @@ def fetch_rendered(url, wait_selector=None, wait_js=None, timeout_ms=45000):
         browser = launch_browser(p)
         try:
             page = browser.new_page(user_agent=HEADERS["User-Agent"])
-            page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+            try:
+                page.goto(url, wait_until="networkidle", timeout=timeout_ms)
+            except Exception as e:
+                if "Timeout" not in type(e).__name__:
+                    raise
+                # never went fully idle (webcams, trackers): carry on with whatever has loaded
             timed_out = False
             try:  # a bot-check page ("verifying your request") often clears itself in a few seconds
                 page.wait_for_function(
