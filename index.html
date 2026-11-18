@@ -71,6 +71,9 @@ ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction
 .card.powder { border: 2px solid var(--good); }
 .top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .name { font-family: var(--display); font-weight: 700; font-size: 26px; line-height: 1.1; text-transform: uppercase; letter-spacing: .01em; min-width: 0; }
+.name a { color: inherit; text-decoration: none; border-bottom: 2px solid transparent; }
+.name a:hover, .name a:focus-visible { border-bottom-color: var(--accent); }
+.name a .go { font-family: var(--sans); font-size: .55em; font-weight: 600; color: var(--accent); margin-left: 6px; vertical-align: .25em; }
 .tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .tag { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; }
 .tag.pow { background: var(--good-bg); color: var(--good); }
@@ -120,7 +123,7 @@ ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction
 
   <div class="foot">
     <div>Snow in centimetres. The gauge runs 0 to 30 cm, one block per centimetre. Green blocks start at 15 cm, a powder day.</div>
-    <div>Resorts marked <b>Estimate</b> had no report on their own page, so the number comes from a weather model. Sunshine's week figure is a 5-day total. Season is the total snowfall so far this winter as the resort reports it; <b>--</b> means the resort's page didn't give one.</div>
+    <div>Resorts marked <b>Estimate</b> had no report on their own page, so the number comes from a weather model. Sunshine's week figure is a 5-day total. Tap a resort's name to open its own conditions page. Season is the total snowfall so far this winter as the resort reports it; <b>--</b> means the resort's page didn't give one.</div>
   </div>
 </main>
 
@@ -133,6 +136,18 @@ ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction
   var btnSnow = document.getElementById('sortSnow');
   var btnOrder = document.getElementById('sortOrder');
   var data = null;
+  // Each resort's own conditions page. The name on a card links here.
+  var LINKS = {
+    'Norquay': 'https://banffnorquay.com/conditions/',
+    'Sunshine': 'https://www.skibanff.com/the-mountain/mountain-report/current-conditions',
+    'Lake Louise': 'https://www.skilouise.com/snow-conditions/',
+    'Castle': 'https://www.skicastle.ca/snowreport/',
+    'Kicking Horse': 'https://kickinghorseresort.com/conditions/snow-report/',
+    'Panorama': 'https://www.panoramaresort.com/panorama-today/daily-snow-report',
+    'Kimberley': 'https://skikimberley.com/conditions/snow-report/',
+    'Fernie': 'https://skifernie.com/conditions/snow-report/',
+    'Nakiska': 'https://skinakiska.com/conditions/snow-report/'
+  };
   var sortMode = 'snow';
 
   try { var saved = localStorage.getItem('snowSort'); if (saved === 'order' || saved === 'snow') sortMode = saved; } catch (e) {}
@@ -164,7 +179,20 @@ ul.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction
     var li = el('li', 'card' + (powder ? ' powder' : ''));
 
     var top = el('div', 'top');
-    top.appendChild(el('div', 'name', r.name));
+    var nm = el('div', 'name');
+    var href = LINKS[r.name];
+    if (href) {
+      var link = el('a', '', r.name);
+      link.href = href;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.setAttribute('aria-label', r.name + ' conditions page (opens in a new tab)');
+      link.appendChild(el('span', 'go', '\u2197'));
+      nm.appendChild(link);
+    } else {
+      nm.textContent = r.name;
+    }
+    top.appendChild(nm);
     var tags = el('div', 'tags');
     if (powder) tags.appendChild(el('span', 'tag pow', 'Powder day'));
     if (est) tags.appendChild(el('span', 'tag est', 'Estimate'));
