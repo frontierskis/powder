@@ -68,9 +68,12 @@ RESORTS = [
     # Lake Louise publishes two stations. Change this to "Back Bowls" if you'd rather
     # show the higher-elevation reading.
     {"name": "Lake Louise",   "lat": 51.4536, "lon": -116.1388,
-     "url": "https://reports.skilouise.com/",
+     # skilouise.com/snow-conditions/ is plain HTML with Upper Mountain and Mid Mountain readings
+     # (reports.skilouise.com kept timing out from GitHub's servers).
+     "url": "https://www.skilouise.com/snow-conditions/",
      "extract": lambda r: (first_station_value(r, ["Last 24 Hours", "24 Hours"], "Mid Mountain"),
-                           first_station_value(r, ["Last 7 Days", "7 Days"], "Mid Mountain"))},
+                           first_station_value(r, ["Last 7 Days", "7 Days"], "Mid Mountain")),
+     "season": lambda r: first_station_value(r, ["This Season", "Season"], "Mid Mountain")},
     # Labels on this page include "24hr", "5 Day", "Base", "Settled Base", "Cumulative".
     {"name": "Sunshine",      "lat": 51.0786, "lon": -115.7720,
      "url": "https://www.skibanff.com/the-mountain/mountain-report/current-conditions",
@@ -218,7 +221,7 @@ def extract_stat_box(resp, label):
     return None
 
 
-def extract_station_value(resp, label, station, stations=("Back Bowls", "Mid Mountain")):
+def extract_station_value(resp, label, station, stations=("Back Bowls", "Upper Mountain", "Mid Mountain")):
     """Lake Louise reports two stations side by side (Back Bowls, Mid Mountain).
     Strategy 1: a table row "<label> | v1 | v2" with the station names in a header
     row, so the column is chosen by name (never guessed).
@@ -559,8 +562,8 @@ def get_resort(resort):
                     sv = extract_season(resp)
                 SEASON[resort["name"]] = sv
                 if sv is None:
-                    SEASON_NOTES[resort["name"]] = "season total not found. words seen: " + season_hints(resp)
-                    + " || html: " + season_snippet(resp)
+                    SEASON_NOTES[resort["name"]] = ("season total not found. words seen: " + season_hints(resp)
+                                                    + " || html: " + season_snippet(resp))
             except Exception as e:
                 SEASON_NOTES[resort["name"]] = f"season extractor failed: {type(e).__name__}: {e}"[:200]
             print(f"[{resort['name']}] fetched {len(resp.text)} chars, "
