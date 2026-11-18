@@ -97,7 +97,8 @@ RESORTS = [
          .some(b => /24\s*hours/i.test(b.textContent) &&
                     /\d/.test((b.querySelector('h4') || {}).textContent || ''))""",
      "extract": lambda r: (extract_stat_box(r, "24 Hours"),
-                           extract_stat_box(r, "7 Days"))},
+                           extract_stat_box(r, "7 Days")),
+     "season": lambda r: extract_stat_box(r, "Season")},
 ]
 
 # Order the display (and the knob) follows. Any resort not listed here goes to the end.
@@ -287,6 +288,76 @@ def extract_from_html(resp, css, pattern=r"(\d+(?:\.\d+)?)"):
 
 
 # ---------------------------------------------------------------------------
+# Season total (year to date snowfall). Shown on the web page only.
+# Every resort page labels it a little differently ("Season", "Season Total",
+# "Cumulative", "YTD"...), so one tolerant finder serves them all. It looks for a short
+# label and takes the single number that sits with it. If it finds nothing, the note in
+# snow.json lists the season-like words it did see, so the labels can be added here.
+# ---------------------------------------------------------------------------
+SEASON_LABEL = re.compile(
+    r"^(total\s+)?(season(al)?(\s+(total|to\s+date|snow(fall)?|snow\s+total))?|"
+    r"year[\s-]*to[\s-]*date(\s+snow(fall)?)?|ytd(\s+snow(fall)?)?|"
+    r"cumulative(\s+snow(fall)?)?|total\s+snow(fall)?)\s*(\(.*?\))?\s*:?$", re.I)
+_NUM = r"\d+(?:\.\d+)?"
+
+
+def _season_numbers(text):
+    """Numbers in a short piece of text, ignoring years like 2026 and 2026/27."""
+    out = []
+    for m in re.finditer(_NUM, text):
+        v = float(m.group(0))
+        if "." not in m.group(0) and 1990 <= v <= 2100:
+            continue
+        out.append(v)
+    return out
+
+
+def extract_season(resp):
+    soup = BeautifulSoup(resp.text, "html.parser")
+    for node in soup.find_all(string=True):
+        label = " ".join(node.split())
+        m_inline = re.match(r"^(?:season(?:\s+total|\s+snow(?:fall)?)?|year[\s-]*to[\s-]*date|ytd|cumulative|total\s+snow(?:fall)?)"
+                            r"\s*:?\s*(" + _NUM + r")\s*cm\b", label, re.I)
+        if m_inline:  # "Year to date: 41 cm" in one piece of text
+            return float(m_inline.group(1))
+        if not label or len(label) > 40 or not SEASON_LABEL.match(label):
+            continue
+        # a) a container that holds just the label and one number, e.g. "85 cm Season"
+        box = node.parent
+        for _ in range(3):
+            if box is None:
+                break
+            text = " ".join(box.get_text(" ", strip=True).split())
+            if len(text) > 60:
+                break
+            nums = _season_numbers(text.replace(label, " "))
+            if len(nums) == 1:
+                return nums[0]
+            box = box.parent
+        # b) the next piece of text after the label, then the one before it
+        for gen in (node.find_all_next(string=True, limit=4), node.find_all_previous(string=True, limit=4)):
+            for t in gen:
+                t = t.strip()
+                if not t:
+                    continue
+                nums = _season_numbers(t)
+                if nums and len(t) <= 20:
+                    return nums[0]
+    return None
+
+
+def season_hints(resp):
+    """Short texts mentioning season / total / year-to-date, to learn a page's wording."""
+    soup = BeautifulSoup(resp.text, "html.parser")
+    seen = []
+    for node in soup.find_all(string=True):
+        t = " ".join(node.split())
+        if 2 < len(t) <= 40 and re.search(r"season|ytd|year.to.date|cumulative|total", t, re.I) and t not in seen:
+            seen.append(t)
+    return " | ".join(seen[:6])
+
+
+# ---------------------------------------------------------------------------
 # Fallback: model-estimated snowfall over the last 24h and last 7 days
 # ---------------------------------------------------------------------------
 def _totals(vals):
@@ -432,6 +503,8 @@ def diagnose(resp):
     return "page text: " + text[i:i + 250]
 
 
+SEASON = {}        # resort name -> season total in cm, when its page gave one
+SEASON_NOTES = {}  # resort name -> why not
 MODEL_CACHE = {}  # (lat, lon) -> (cm24, cm_week), filled by one batched request
 
 
@@ -449,6 +522,15 @@ def get_resort(resort):
                 resp = requests.get(resort["url"], headers=HEADERS, timeout=TIMEOUT)
                 resp.raise_for_status()
             cm24, week = resort["extract"](resp)
+            try:  # season total is a bonus: a failure here must never lose the 24 h / week numbers
+                sv = resort["season"](resp) if resort.get("season") else extract_season(resp)
+                if sv is None:
+                    sv = extract_season(resp)
+                SEASON[resort["name"]] = sv
+                if sv is None:
+                    SEASON_NOTES[resort["name"]] = "season total not found. words seen: " + season_hints(resp)
+            except Exception as e:
+                SEASON_NOTES[resort["name"]] = f"season extractor failed: {type(e).__name__}: {e}"[:200]
             print(f"[{resort['name']}] fetched {len(resp.text)} chars, "
                   f"extracted 24h={cm24} week={week}", file=sys.stderr)
             if cm24 is None or week is None:
@@ -488,6 +570,7 @@ def get_resort(resort):
     return cm24, week, ("model" if cm24 is not None or week is not None else "none")
 
 
+KEEP_SEASON_HOURS = 72      # a season total only grows, so an older one is safe to show for a few days
 KEEP_LAST_GOOD_HOURS = 14   # a blocked page keeps its last real report for up to this long
 
 
@@ -511,6 +594,23 @@ def main(out_path="snow.json"):
         entry = {"name": r["name"], "cm": cm24, "week": week, "src": src}
         if NOTES.get(r["name"]):
             entry["note"] = NOTES[r["name"]]
+        season = SEASON.get(r["name"])
+        if season is not None and week is not None and season < week:
+            season = None  # a season total can't be below this week's snow: probably misread
+        if season is None:
+            old_s = prev.get(r["name"], {})
+            try:
+                s_age = (now - datetime.fromisoformat(old_s.get("season_asof"))).total_seconds() / 3600
+            except Exception:
+                s_age = None
+            if old_s.get("season") is not None and s_age is not None and s_age <= KEEP_SEASON_HOURS:
+                season = old_s["season"]
+                entry["season_asof"] = old_s["season_asof"]
+        else:
+            entry["season_asof"] = now.isoformat(timespec="seconds")
+        entry["season"] = season
+        if season is None and SEASON_NOTES.get(r["name"]):
+            entry["season_note"] = SEASON_NOTES[r["name"]][:300]
         if src in ("resort", "mixed"):
             entry["asof"] = now.isoformat(timespec="seconds")
         else:
