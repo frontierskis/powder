@@ -252,7 +252,46 @@ def extract_station_value(resp, label, station, stations=("Back Bowls", "Upper M
             if idx < len(vals) and vals[idx] is not None:
                 return vals[idx]
 
-    # Strategy 2: a section that starts at the station name
+    others = {st.lower() for st in stations if st != station}
+    # Strategy 2 (layout-aware): read the station's block as a flat run of text pieces. If a number sits
+    # just before the block's first label, the page puts numbers BEFORE labels; otherwise after.
+    known = {"overnight", "last 24 hours", "24 hours", "last 48 hours", "48 hours", "last 7 days",
+             "7 days", "base", "this season", "season", "season total", "settled base"}
+
+    def clean(t):
+        return " ".join(t.split()).lower()
+
+    def isnum(t):
+        return re.match(r"^\s*\d+(?:\.\d+)?(?!\d)", t) is not None and len(t) <= 24
+
+    for head in [e for e in soup.find_all(string=True) if e.strip().lower() == station.lower()]:
+        toks = []
+        for s_ in head.find_all_next(string=True):
+            t = " ".join(s_.split())
+            if not t or s_.parent.name in ("script", "style"):
+                continue
+            if t.lower() in others:
+                break
+            toks.append(t)
+            if len(toks) > 60:
+                break
+        idx = [i for i, t in enumerate(toks) if clean(t) in known]
+        if not idx or want not in [clean(toks[i]) for i in idx]:
+            continue
+        def back(k):  # step back over bare unit pieces such as "cm" or "(3.9 in)"
+            k -= 1
+            while k >= 0 and re.match(r"^(cm|in|\(.*\))$", toks[k].strip().lower()):
+                k -= 1
+            return k
+
+        first = idx[0]
+        before = first > 0 and back(first) >= 0 and isnum(toks[back(first)])
+        i = [i for i in idx if clean(toks[i]) == want][0]
+        j = back(i) if before else i + 1
+        if 0 <= j < len(toks) and isnum(toks[j]):
+            return num(toks[j])
+
+    # Strategy 3: a section that starts at the station name
     others = {st.lower() for st in stations if st != station}
     for head in [e for e in soup.find_all(string=True) if e.strip().lower() == station.lower()]:
         seen = False
@@ -274,7 +313,17 @@ def extract_station_value(resp, label, station, stations=("Back Bowls", "Upper M
                 m = re.match(r"(\d+(?:\.\d+)?)", t)
                 if m:
                     return float(m.group(1))
+
     return None
+
+
+def station_snippet(resp, station):
+    """A short piece of the page's HTML around a station name, for diagnosis."""
+    soup = BeautifulSoup(resp.text, "html.parser")
+    for node in soup.find_all(string=lambda t: t and t.strip().lower() == station.lower()):
+        box = node.parent.parent.parent if node.parent and node.parent.parent and node.parent.parent.parent else node.parent
+        return re.sub(r"\s+", " ", str(box))[:600]
+    return ""
 
 
 def first_station_value(resp, labels, station):
@@ -572,6 +621,9 @@ def get_resort(resort):
                 waited = " (numbers never appeared)" if getattr(resp, "timed_out", False) else ""
                 NOTES[resort["name"]] = (f"page loaded ({len(resp.text)} chars){waited}, extractor "
                                          f"found 24h={cm24} week={week}. {diagnose(resp)}")[:600]
+                if resort["name"] == "Lake Louise":
+                    NOTES["Lake Louise"] = ("html: " + station_snippet(resp, "Mid Mountain")
+                                            + " || " + NOTES["Lake Louise"])[:900]
         except Exception as e:
             msg = f"{type(e).__name__}: {e}".replace("\n", " ")[:300]
             NOTES[resort["name"]] = msg
