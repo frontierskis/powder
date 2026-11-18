@@ -96,6 +96,14 @@ RESORTS = [
      "season": lambda r: extract_table_value(r, "Total Snowfall this season")},
     rcr("Fernie", 49.4636, -115.0883, "https://skifernie.com/conditions/snow-report/"),
     rcr("Kicking Horse", 51.2985, -117.0486, "https://kickinghorseresort.com/conditions/snow-report/"),
+    # Revelstoke's page has H2 labels with the value on the next line.
+    # (Add "web_only": True to an entry to show a resort on the web page only; it is then
+    # written to "web_only" in snow.json instead of "resorts", which the ESP32s read.)
+    {"name": "Revelstoke", "lat": 51.0, "lon": -118.1630,
+     "url": "https://www.revelstokemountainresort.com/mountain/conditions/snow-report/",
+     "extract": lambda r: (first_after_label(r, ["24 Hours", "24 hrs"], tag="h2"),
+                           first_after_label(r, ["7 Days", "7 days"], tag="h2")),
+     "season": lambda r: first_after_label(r, ["Season Total", "Season"], tag="h2")},
     rcr("Kimberley", 49.6800, -116.0000, "https://skikimberley.com/conditions/snow-report/"),
     # Panorama: numbers load via JavaScript. Wait until the "24 Hours" box has a digit
     # (the page also shows other numbers, so a plain "any text" wait would be too early).
@@ -111,7 +119,7 @@ RESORTS = [
 
 # Order the display (and the knob) follows. Any resort not listed here goes to the end.
 ORDER = ["Norquay", "Sunshine", "Lake Louise", "Castle", "Kicking Horse",
-         "Panorama", "Kimberley", "Fernie"]
+         "Panorama", "Kimberley", "Fernie", "Nakiska", "Revelstoke"]
 RESORTS.sort(key=lambda r: ORDER.index(r["name"]) if r["name"] in ORDER else len(ORDER))
 
 
@@ -666,14 +674,14 @@ def load_previous(path):
     try:
         with open(path) as f:
             old = json.load(f)
-        return {e["name"]: e for e in old.get("resorts", [])}, old.get("updated")
+        return {e["name"]: e for e in old.get("resorts", []) + old.get("web_only", [])}, old.get("updated")
     except Exception:
         return {}, None
 
 
 def main(out_path="snow.json"):
     now = datetime.now(timezone.utc)
-    out = {"updated": now.isoformat(timespec="seconds"), "resorts": []}
+    out = {"updated": now.isoformat(timespec="seconds"), "resorts": [], "web_only": []}
     prev, prev_updated = load_previous(out_path)
     prefetch_model(RESORTS)
     for r in RESORTS:
@@ -715,7 +723,7 @@ def main(out_path="snow.json"):
                 entry["note"] = (f"resort page blocked this run; kept the report from {asof} "
                                  f"({age_h:.0f} h ago). " + entry.get("note", ""))[:600]
                 cm24, week, src = entry["cm"], entry["week"], "kept"
-        out["resorts"].append(entry)
+        (out["web_only"] if r.get("web_only") else out["resorts"]).append(entry)
         print(f"{r['name']:<14} 24h={cm24} cm  week={week} cm  ({src})")
     with open(out_path, "w") as f:
         json.dump(out, f, separators=(",", ":"))
