@@ -307,6 +307,25 @@ def extract_station_value(resp, label, station, stations=("Back Bowls", "Upper M
         i = [i for i in idx if clean(toks[i]) == want][0]
         j = back(i) if before else i + 1
         if 0 <= j < len(toks) and isnum(toks[j]):
+            # The reading may show both units, e.g. "37 cm" and "(14.57 in)", in either order.
+            # Gather the pieces that make up this one reading and take the centimetre value.
+            def piece(t):
+                return len(t) <= 24 and clean(t) not in known and re.search(r"\d|^(cm|in)$", clean(t)) is not None
+            span, k = [], j
+            if before:
+                while 0 <= k and piece(toks[k]) and len(span) < 6:
+                    span.insert(0, toks[k]); k -= 1
+            else:
+                while k < len(toks) and piece(toks[k]) and len(span) < 6:
+                    span.append(toks[k]); k += 1
+            joined = " ".join(span)
+            pairs = re.findall(r"(\d+(?:\.\d+)?)\s*(cm|in)\b", joined, re.I)
+            cms = [float(v) for v, u in pairs if u.lower() == "cm"]
+            ins = [float(v) for v, u in pairs if u.lower() == "in"]
+            if cms:
+                return cms[0]
+            if ins:                       # inches only: convert
+                return round(ins[0] * 2.54, 1)
             return num(toks[j])
 
     # Strategy 3: a section that starts at the station name
