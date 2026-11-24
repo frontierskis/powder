@@ -1,0 +1,41 @@
+# Builds the laser files for the Avalanche Canada zone map from the official zone boundaries.
+# Run it by hand: Actions tab -> "Build avalanche zone map files" -> Run workflow.
+# The finished files are saved in the avy_map/ folder of the repo (and attached to the run).
+name: Build avalanche zone map files
+
+on:
+  workflow_dispatch:
+    inputs:
+      width:
+        description: Board width in mm
+        default: "600"
+      height:
+        description: Board height in mm
+        default: "400"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install packages
+        run: pip install requests numpy opencv-python-headless fonttools matplotlib
+      - name: Build the map files
+        run: python tools/build_avy_map.py --out avy_map --width "${{ inputs.width }}" --height "${{ inputs.height }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: avy_map
+          path: avy_map
+      - name: Save the files in the repo
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add avy_map
+          git diff --cached --quiet || git commit -m "Update avalanche zone map files"
+          git push
