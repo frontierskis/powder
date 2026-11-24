@@ -133,6 +133,19 @@ def main():
     try: meta = load(a.metadata, API + 'metadata')
     except Exception as e: print('metadata unavailable:', e); meta = []
     zones = read_zones(areas, meta, a.bbox, names)
+    # ---- diagnostics: written next to the other files so problems can be found without guessing
+    from collections import Counter
+    feats = areas.get('features', []) if isinstance(areas, dict) else []
+    mids = {((m.get('area') or {}).get('id')): m for m in (meta if isinstance(meta, list) else [])}
+    lines = ['features in areas file: %d' % len(feats), 'entries in metadata file: %d' % len(mids),
+             'geometry types: %s' % dict(Counter(((f.get('geometry') or {}).get('type')) for f in feats)),
+             'zones kept inside bbox %s: %d' % (a.bbox, len(zones)), '']
+    for f in feats:
+        zid = f.get('id') or (f.get('properties') or {}).get('id'); m = mids.get(zid, {}); c = m.get('centroid') or {}
+        pc = (f.get('properties') or {}).get('centroid')
+        lines.append('%s | meta:%s | centroid_meta=%s | centroid_props=%s | bbox=%s | %s' % (str(zid)[:8], 'yes' if m else 'NO', c if c else '-',
+                     [round(v, 2) for v in pc] if pc else '-', f.get('bbox'), (((m.get('area') or {}).get('name')) or '-')[:60]))
+    open(os.path.join(a.out, 'avy_debug.txt'), 'w').write('\n'.join(lines))
     if not zones: sys.exit('No zones inside the bounding box.')
     print(len(zones), 'zones')
     proj = fit(zones, W, H, 16)
