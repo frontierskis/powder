@@ -1,0 +1,13 @@
+features in areas file: 8
+entries in metadata file: 8
+geometry types: {'MultiPolygon': 8}
+zones kept inside bbox [-129.5, 48.5, -111.0, 54.6]: 6
+
+010016cb | meta:yes | centroid_meta={'longitude': -113.93284710370706, 'latitude': 49.08129207544112} | centroid_props=[-113.93, 49.08] | bbox=[-114.16658349999994, 48.997686300000055, -113.65343739999997, 49.20440260000004] | Waterton
+2b27cc57 | meta:yes | centroid_meta={'longitude': -57.33055405402596, 'latitude': 49.827739704176054} | centroid_props=[-57.33, 49.83] | bbox=[-58.7229632, 48.5483471, -56.1093795, 51.0839446] | Corner Brook-Gros Morne-Northern Peninsula
+53bb614c | meta:yes | centroid_meta={'longitude': -123.3464121869476, 'latitude': 52.9575243036738} | centroid_props=[-123.35, 52.96] | bbox=[-137.1192801, 48.6694255, -113.9490704, 60.384656] | Akamina-Badshot-Battle-Birkenhead-Blue River-Bonnington-Boun
+d15dff29 | meta:yes | centroid_meta={'longitude': -115.1958225555043, 'latitude': 50.78856882104437} | centroid_props=[-115.2, 50.79] | bbox=[-115.46851579999998, 50.485601247000034, -114.821596538, 51.156121400000075] | Bow Valley-Highwood Pass-North 40-Spray - KLakes
+03eb3e06 | meta:yes | centroid_meta={'longitude': -66.08685907369768, 'latitude': 48.90968671256848} | centroid_props=[-66.09, 48.91] | bbox=[-66.2457, 48.7669, -65.9819, 49.051] | Chic-Chocs
+afe9ffd1 | meta:yes | centroid_meta={'longitude': -116.16044043836781, 'latitude': 51.382373463285056} | centroid_props=[-116.16, 51.38] | bbox=[-116.7663372, 50.9276064, -115.4056669, 51.9350297] | Banff-East Side 93N-Field-Kootenay-Lake Louise-Little Yoho-L
+b2a14eb4 | meta:yes | centroid_meta={'longitude': -117.52435368057834, 'latitude': 51.26859075131051} | centroid_props=[-117.52, 51.27] | bbox=[-117.923752396, 51.035425685000064, -117.20107294199994, 51.48776434100015] | Glacier
+426b4bc4 | meta:yes | centroid_meta={'longitude': -117.62626152142234, 'latitude': 52.55611523237941} | centroid_props=[-117.63, 52.56] | bbox=[-118.67323849999997, 51.95316742300008, -116.66248008399998, 53.04656408800008] | Brazeau-Churchill-Cirrus-Wilson-Fryatt-Icefields-Maligne-Mar
