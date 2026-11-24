@@ -1,0 +1,34 @@
+{
+ "zones": [
+  {
+   "led": 1,
+   "id": "53bb614cadbd487077d867dec6007dfed090d20fbc0cbfe941451b6af2df33ed",
+   "name": "Akamina-Badshot-Battle-Birkenhead-Blue River-Bonnington-Boundary-Brandywine-Bull-Central Selkirk-Clearwater-Clemina-Coquihalla-Crawford-Crowsnest North-Crowsnest South-Dogtooth-Duffey-East Island-East Kakwa-East Purcell-Elkford East-Elkford West-Esplanade-Flathead-Garibaldi-Goat-Gold-Grohman-Haines Pass-Harrison-Fraser-Homathko-Howson-Jordan-Kakwa-Kispiox-Kitimat-Kokanee-Kootenay Pass-Lizard-Manning-McBride-McGregor-Microwave-Sinclair-Moyie-Nass-Ningunsaw-Norns-North Bulkley-North Island-North Monashee-North Okanagan-North Selkirk-North Shore-Pine Pass-Powell River-Premier-Quesnel-Renshaw-Retallack-Robson-Rossland-Rupert-Sasquatch-Seven Sisters-Shames-Shuswap-Skagit-Sky Pilot-South Bulkley-South Chilcotin-South Island-South Okanagan-Spearhead-Stein-Stewart-St. Mary-Sugarbowl-Tantalus-Taseko-Telkwa-Tetrahedron-Tumbler-Tutshi-Valhalla-West Island-West Purcell-Whatshan-Wheaton-White Pass East-White Pass West-Ymir"
+  },
+  {
+   "led": 2,
+   "id": "b2a14eb464567902bcdf5b0cf1efe870416fee4de1d80d5b1f6d9cbc1b3bd73a",
+   "name": "Glacier"
+  },
+  {
+   "led": 3,
+   "id": "afe9ffd14c0637d10e2530857f8e7a8cba0277f33351d3b31c8f37f4111c6ecf",
+   "name": "Banff-East Side 93N-Field-Kootenay-Lake Louise-Little Yoho-LLSA-Sunshine-West Side 93N"
+  },
+  {
+   "led": 4,
+   "id": "d15dff296f550c29a26e3203191d60ed0a36eeda9361320a324047b0850d77ea",
+   "name": "Bow Valley-Highwood Pass-North 40-Spray - KLakes"
+  },
+  {
+   "led": 5,
+   "id": "010016cb778a7962e0174e68d5a278372db93924e19e450052de07b95eb72c85",
+   "name": "Waterton"
+  },
+  {
+   "led": 6,
+   "id": "426b4bc4f761f2890921214b32ed3bf9f5de086f39b6f755296daf3a3048587e",
+   "name": "Brazeau-Churchill-Cirrus-Wilson-Fryatt-Icefields-Maligne-Marmot-Miette Lake-Pyramid"
+  }
+ ]
+}
