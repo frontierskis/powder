@@ -1,16 +1,16 @@
 name: Update snow data
 
-# Runs twice a day, aiming to finish around 7:00 am and 6:00 pm Calgary time.
-# GitHub starts scheduled jobs late, and the busiest minute is exactly on the hour:
-# runs asked for 13:00 UTC were starting 55-85 minutes late. So the jobs are queued at
-# quiet minutes, 43 minutes ahead of the target time, to land close to 7:00 am / 6:00 pm.
-# Since 1 Nov 2026 Alberta uses Alberta Time (UTC-6 all year, no clock changes),
-# so the two slots are fixed in UTC. The "Decide whether to run" step is a safety
-# check: it skips a run outside those windows or one that follows another within 3 hours.
+# Runs twice a day and scrapes at 7:00 am and 6:00 pm Alberta Time.
+# GitHub starts scheduled jobs late by a variable amount (55-85 minutes in the morning,
+# 40-50 in the evening). So each job is queued well ahead of its target, installs everything,
+# then waits (at most 100 minutes) until exactly 7:00 am / 6:00 pm before scraping.
+# Alberta uses Alberta Time (UTC-6 all year, no clock changes) from 1 Nov 2026, so the
+# slots are fixed in UTC. The "Decide whether to run" step skips a run outside the windows
+# or one that follows another within 3 hours.
 on:
   schedule:
-    - cron: "17 12 * * *"   # queued 6:17 am Alberta Time (UTC-6), usually starts ~7:00 am
-    - cron: "17 23 * * *"   # queued 5:17 pm Alberta Time (UTC-6), usually starts ~6:00 pm
+    - cron: "23 11 * * *"   # queued 5:23 am Alberta Time (UTC-6); waits until 7:00 am
+    - cron: "43 22 * * *"   # queued 4:43 pm Alberta Time (UTC-6); waits until 6:00 pm
   workflow_dispatch:          # lets you run it by hand from the Actions tab
 
 permissions:
@@ -39,7 +39,7 @@ jobs:
               now = dt.datetime.fromisoformat(os.environ["FAKE_NOW"])
           local = now + dt.timedelta(hours=calgary_offset_hours(now))
           mins = local.hour * 60 + local.minute
-          in_window = (6 * 60 <= mins < 10 * 60) or (17 * 60 <= mins < 21 * 60)
+          in_window = (5 * 60 <= mins < 10 * 60) or (16 * 60 <= mins < 21 * 60)
           recent = False
           try:
               last = dt.datetime.fromisoformat(json.load(open("snow.json"))["updated"])
@@ -63,6 +63,22 @@ jobs:
       - name: Install headless browser
         if: steps.gate.outputs.run == 'true'
         run: python -m playwright install --with-deps chromium
+
+      - name: Wait for 7:00 am / 6:00 pm
+        if: steps.gate.outputs.run == 'true' && github.event_name == 'schedule'
+        run: |
+          python3 - <<'PY'
+          import datetime as dt, time
+          local = dt.datetime.now(dt.timezone.utc) + dt.timedelta(hours=-6)   # Alberta Time
+          mins = local.hour * 60 + local.minute
+          target = 7 * 60 if mins < 12 * 60 else 18 * 60
+          wait = (target - mins) * 60 - local.second
+          if 0 < wait <= 100 * 60:
+              print(f"Started {local:%H:%M}; waiting {wait // 60} min until the target time")
+              time.sleep(wait)
+          else:
+              print(f"Started {local:%H:%M}; no wait needed")
+          PY
 
       - name: Run scraper
         if: steps.gate.outputs.run == 'true'
