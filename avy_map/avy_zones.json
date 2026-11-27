@@ -2,33 +2,83 @@
  "zones": [
   {
    "led": 1,
-   "id": "53bb614cadbd487077d867dec6007dfed090d20fbc0cbfe941451b6af2df33ed",
-   "name": "Akamina-Badshot-Battle-Birkenhead-Blue River-Bonnington-Boundary-Brandywine-Bull-Central Selkirk-Clearwater-Clemina-Coquihalla-Crawford-Crowsnest North-Crowsnest South-Dogtooth-Duffey-East Island-East Kakwa-East Purcell-Elkford East-Elkford West-Esplanade-Flathead-Garibaldi-Goat-Gold-Grohman-Haines Pass-Harrison-Fraser-Homathko-Howson-Jordan-Kakwa-Kispiox-Kitimat-Kokanee-Kootenay Pass-Lizard-Manning-McBride-McGregor-Microwave-Sinclair-Moyie-Nass-Ningunsaw-Norns-North Bulkley-North Island-North Monashee-North Okanagan-North Selkirk-North Shore-Pine Pass-Powell River-Premier-Quesnel-Renshaw-Retallack-Robson-Rossland-Rupert-Sasquatch-Seven Sisters-Shames-Shuswap-Skagit-Sky Pilot-South Bulkley-South Chilcotin-South Island-South Okanagan-Spearhead-Stein-Stewart-St. Mary-Sugarbowl-Tantalus-Taseko-Telkwa-Tetrahedron-Tumbler-Tutshi-Valhalla-West Island-West Purcell-Whatshan-Wheaton-White Pass East-White Pass West-Ymir"
+   "id": "76677f8b456f0efafa1e5d686775434cdc162b64d79f557880b8eefa6ed09891",
+   "name": "East Island-North Island-South Island-West Island"
   },
   {
    "led": 2,
+   "id": "6832021ccd53924459d6723ac8ec1fb45577deff7f5fef50b2c8ebd0b66e671d",
+   "name": "Brandywine-Garibaldi-Homathko-Powell River-Spearhead-Tantalus"
+  },
+  {
+   "led": 3,
+   "id": "14cb3ee8b3d2e2aa8f879077e43aaa6dd865c462104e7f5d161cfc9ba24927da",
+   "name": "Birkenhead-Duffey-South Chilcotin-Stein-Taseko"
+  },
+  {
+   "led": 4,
+   "id": "2c9088bd3656cc50dde613e8988aa032bb054cfb3c2601e1a9e050b8dc2169b1",
+   "name": "North Shore-Sasquatch-Sky Pilot-Tetrahedron"
+  },
+  {
+   "led": 5,
+   "id": "a6eaa6fc749af511729c647e3225934acf3cc711efdc09d2e673515f4fa2ca62",
+   "name": "Coquihalla-Harrison-Fraser-Manning-Skagit"
+  },
+  {
+   "led": 6,
+   "id": "fd81d6f6be094ef894f6931c9e0097fc137deae7a10c62aaff8ea96a3b133553",
+   "name": "Clearwater-North Okanagan-Quesnel-Shuswap"
+  },
+  {
+   "led": 7,
+   "id": "cc0488b77181621ea6539a8aae5058a9d7f9228455cdb06fd04fc3da767c171f",
+   "name": "Badshot-Battle-Blue River-Central Selkirk-Clemina-Esplanade-Goat-Gold-Jordan-North Monashee-North Selkirk-Premier-Robson"
+  },
+  {
+   "led": 8,
    "id": "b2a14eb464567902bcdf5b0cf1efe870416fee4de1d80d5b1f6d9cbc1b3bd73a",
    "name": "Glacier"
   },
   {
-   "led": 3,
+   "led": 9,
    "id": "afe9ffd14c0637d10e2530857f8e7a8cba0277f33351d3b31c8f37f4111c6ecf",
    "name": "Banff-East Side 93N-Field-Kootenay-Lake Louise-Little Yoho-LLSA-Sunshine-West Side 93N"
   },
   {
-   "led": 4,
+   "led": 10,
    "id": "d15dff296f550c29a26e3203191d60ed0a36eeda9361320a324047b0850d77ea",
    "name": "Bow Valley-Highwood Pass-North 40-Spray - KLakes"
   },
   {
-   "led": 5,
+   "led": 11,
+   "id": "22f8effd952a627fef02a5c8a7d562795ca1143e8c0a28fa68d13ede54a73d16",
+   "name": "Akamina-Bull-Crowsnest North-Crowsnest South-Elkford East-Elkford West-Flathead-Lizard"
+  },
+  {
+   "led": 12,
+   "id": "5eef47a6f069ff87be8c099f45593abef02fd067da030b538750ab4bff19d02e",
+   "name": "Crawford-Dogtooth-East Purcell-Moyie-St. Mary-West Purcell"
+  },
+  {
+   "led": 13,
+   "id": "0f23c8baa694da6047b905917ff75428ec8d4422697c6a7d6c297ac5ddeb4e60",
+   "name": "Bonnington-Grohman-Kokanee-Kootenay Pass-Norns-Retallack-Rossland-South Okanagan-Valhalla-Whatshan-Ymir"
+  },
+  {
+   "led": 14,
    "id": "010016cb778a7962e0174e68d5a278372db93924e19e450052de07b95eb72c85",
    "name": "Waterton"
   },
   {
-   "led": 6,
+   "led": 15,
    "id": "426b4bc4f761f2890921214b32ed3bf9f5de086f39b6f755296daf3a3048587e",
    "name": "Brazeau-Churchill-Cirrus-Wilson-Fryatt-Icefields-Maligne-Marmot-Miette Lake-Pyramid"
+  },
+  {
+   "led": 16,
+   "id": "479dbbc0268615ac524cb3eb49c702499df9df1dd24684b3d0054699f5e11013",
+   "name": "East Kakwa-Kakwa-McBride-McGregor-Pine Pass-Renshaw-Sugarbowl-Tumbler"
   }
  ]
 }

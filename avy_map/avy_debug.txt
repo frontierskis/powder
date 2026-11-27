@@ -1,13 +1,28 @@
-features in areas file: 8
-entries in metadata file: 8
-geometry types: {'MultiPolygon': 8}
-zones kept inside bbox [-129.5, 48.5, -111.0, 54.6]: 6
+features in areas file: 23
+entries in metadata file: 23
+geometry types: {'MultiPolygon': 23}
+zones kept inside bbox [-129.5, 48.5, -111.0, 54.6]: 16
 
+b2a14eb4 | meta:yes | centroid_meta={'longitude': -117.52435368057834, 'latitude': 51.26859075131051} | centroid_props=[-117.52, 51.27] | bbox=[-117.923752396, 51.035425685000064, -117.20107294199994, 51.48776434100015] | Glacier
+426b4bc4 | meta:yes | centroid_meta={'longitude': -117.62626152142234, 'latitude': 52.55611523237941} | centroid_props=[-117.63, 52.56] | bbox=[-118.67323849999997, 51.95316742300008, -116.66248008399998, 53.04656408800008] | Brazeau-Churchill-Cirrus-Wilson-Fryatt-Icefields-Maligne-Mar
 010016cb | meta:yes | centroid_meta={'longitude': -113.93284710370706, 'latitude': 49.08129207544112} | centroid_props=[-113.93, 49.08] | bbox=[-114.16658349999994, 48.997686300000055, -113.65343739999997, 49.20440260000004] | Waterton
 2b27cc57 | meta:yes | centroid_meta={'longitude': -57.33055405402596, 'latitude': 49.827739704176054} | centroid_props=[-57.33, 49.83] | bbox=[-58.7229632, 48.5483471, -56.1093795, 51.0839446] | Corner Brook-Gros Morne-Northern Peninsula
-53bb614c | meta:yes | centroid_meta={'longitude': -123.3464121869476, 'latitude': 52.9575243036738} | centroid_props=[-123.35, 52.96] | bbox=[-137.1192801, 48.6694255, -113.9490704, 60.384656] | Akamina-Badshot-Battle-Birkenhead-Blue River-Bonnington-Boun
+ff27f89a | meta:yes | centroid_meta={'longitude': -136.63255032559098, 'latitude': 59.79371165198136} | centroid_props=[-136.63, 59.79] | bbox=[-137.1192801, 59.448169, -136.23459, 60.1426753] | Haines Pass
+3f39aaf5 | meta:yes | centroid_meta={'longitude': -129.08100895548884, 'latitude': 54.83747393342712} | centroid_props=[-129.08, 54.84] | bbox=[-130.489824, 53.364207, -127.24923, 56.4151428] | Howson-Kitimat-Microwave-Sinclair-Nass-Rupert-Seven Sisters-
+871c1096 | meta:yes | centroid_meta={'longitude': -127.39294164289278, 'latitude': 55.42879619472748} | centroid_props=[-127.39, 55.43] | bbox=[-129.093732, 54.006027, -126.105576, 56.5313275] | Kispiox-North Bulkley-South Bulkley-Telkwa
+a6eaa6fc | meta:yes | centroid_meta={'longitude': -121.2247926704341, 'latitude': 49.46741504532889} | centroid_props=[-121.22, 49.47] | bbox=[-122.2445952, 48.9998211, -120.010938, 50.1750087] | Coquihalla-Harrison-Fraser-Manning-Skagit
+fd81d6f6 | meta:yes | centroid_meta={'longitude': -120.19894397513676, 'latitude': 51.78012692480538} | centroid_props=[-120.2, 51.78] | bbox=[-121.935643, 50.220378, -118.7281347, 53.4289013] | Clearwater-North Okanagan-Quesnel-Shuswap
+76677f8b | meta:yes | centroid_meta={'longitude': -125.7486505757722, 'latitude': 49.66861554427248} | centroid_props=[-125.75, 49.67] | bbox=[-127.2354126, 48.6694255, -124.0802765, 50.5393992] | East Island-North Island-South Island-West Island
+cc0488b7 | meta:yes | centroid_meta={'longitude': -118.59921203137101, 'latitude': 51.54556672460684} | centroid_props=[-118.6, 51.55] | bbox=[-120.4826283, 50.0162803, -116.930165, 53.2400666] | Badshot-Battle-Blue River-Central Selkirk-Clemina-Esplanade-
+2e2d70ec | meta:yes | centroid_meta={'longitude': -135.1428861670814, 'latitude': 60.00417780780808} | centroid_props=[-135.14, 60.0] | bbox=[-135.8293674, 59.5193792, -134.5576464, 60.384656] | Tutshi-Wheaton-White Pass East-White Pass West
+2c9088bd | meta:yes | centroid_meta={'longitude': -122.74131543869079, 'latitude': 49.503127466206045} | centroid_props=[-122.74, 49.5] | bbox=[-124.072659, 49.17105, -121.7727944, 49.7733948] | North Shore-Sasquatch-Sky Pilot-Tetrahedron
+6832021c | meta:yes | centroid_meta={'longitude': -123.82517839380104, 'latitude': 50.37423086114513} | centroid_props=[-123.83, 50.37] | bbox=[-125.09159, 49.6153759, -122.2180347, 51.4341704] | Brandywine-Garibaldi-Homathko-Powell River-Spearhead-Tantalu
+9476288b | meta:yes | centroid_meta={'longitude': -129.95365245316722, 'latitude': 57.07685282147797} | centroid_props=[-129.95, 57.08] | bbox=[-131.859088, 56.002033, -127.3338791, 58.148429] | Boundary-Ningunsaw
+479dbbc0 | meta:yes | centroid_meta={'longitude': -121.41271451846092, 'latitude': 54.46408211400717} | centroid_props=[-121.41, 54.46] | bbox=[-123.82681, 52.7761759, -118.623688, 56.142722] | East Kakwa-Kakwa-McBride-McGregor-Pine Pass-Renshaw-Sugarbow
+14cb3ee8 | meta:yes | centroid_meta={'longitude': -122.79132066685739, 'latitude': 50.72333375827345} | centroid_props=[-122.79, 50.72] | bbox=[-124.4936499, 49.819215, -121.32992, 51.477625] | Birkenhead-Duffey-South Chilcotin-Stein-Taseko
+0f23c8ba | meta:yes | centroid_meta={'longitude': -118.1819501416253, 'latitude': 49.60459937261922} | centroid_props=[-118.18, 49.6] | bbox=[-119.742516, 48.9999042, -116.5036722, 50.3979637] | Bonnington-Grohman-Kokanee-Kootenay Pass-Norns-Retallack-Ros
+5eef47a6 | meta:yes | centroid_meta={'longitude': -116.33764199458888, 'latitude': 50.01051968382965} | centroid_props=[-116.34, 50.01] | bbox=[-117.482694, 48.9996197, -115.045903, 51.5122728] | Crawford-Dogtooth-East Purcell-Moyie-St. Mary-West Purcell
+22f8effd | meta:yes | centroid_meta={'longitude': -114.88444885982769, 'latitude': 49.677551300395436} | centroid_props=[-114.88, 49.68] | bbox=[-115.765458, 48.9992525, -113.9490704, 50.5900548] | Akamina-Bull-Crowsnest North-Crowsnest South-Elkford East-El
 d15dff29 | meta:yes | centroid_meta={'longitude': -115.1958225555043, 'latitude': 50.78856882104437} | centroid_props=[-115.2, 50.79] | bbox=[-115.46851579999998, 50.485601247000034, -114.821596538, 51.156121400000075] | Bow Valley-Highwood Pass-North 40-Spray - KLakes
 03eb3e06 | meta:yes | centroid_meta={'longitude': -66.08685907369768, 'latitude': 48.90968671256848} | centroid_props=[-66.09, 48.91] | bbox=[-66.2457, 48.7669, -65.9819, 49.051] | Chic-Chocs
 afe9ffd1 | meta:yes | centroid_meta={'longitude': -116.16044043836781, 'latitude': 51.382373463285056} | centroid_props=[-116.16, 51.38] | bbox=[-116.7663372, 50.9276064, -115.4056669, 51.9350297] | Banff-East Side 93N-Field-Kootenay-Lake Louise-Little Yoho-L
-b2a14eb4 | meta:yes | centroid_meta={'longitude': -117.52435368057834, 'latitude': 51.26859075131051} | centroid_props=[-117.52, 51.27] | bbox=[-117.923752396, 51.035425685000064, -117.20107294199994, 51.48776434100015] | Glacier
-426b4bc4 | meta:yes | centroid_meta={'longitude': -117.62626152142234, 'latitude': 52.55611523237941} | centroid_props=[-117.63, 52.56] | bbox=[-118.67323849999997, 51.95316742300008, -116.66248008399998, 53.04656408800008] | Brazeau-Churchill-Cirrus-Wilson-Fryatt-Icefields-Maligne-Mar
